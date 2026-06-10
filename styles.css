@@ -122,7 +122,7 @@ button:disabled {
 
 .workspace-tabs {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 6px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -410,12 +410,23 @@ input:focus {
   margin: 22px 0;
 }
 
-.template-button {
-  display: flex;
-  min-height: 58px;
-  justify-content: flex-start;
-  border: 0;
+.template-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
   border-left: 3px solid transparent;
+}
+
+.template-row.is-active {
+  border-left-color: var(--accent);
+  background: rgba(124, 58, 237, 0.1);
+}
+
+.template-button {
+  display: grid;
+  min-height: 58px;
+  justify-items: start;
+  border: 0;
   border-radius: 0;
   background: transparent;
   padding: 10px 12px;
@@ -438,9 +449,114 @@ input:focus {
   font-weight: 750;
 }
 
-.template-button.is-active {
-  border-left-color: var(--accent);
-  background: rgba(124, 58, 237, 0.1);
+.template-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 8px;
+}
+
+.template-actions button,
+.compact-button {
+  min-height: 34px;
+  padding: 0 10px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.compact-button {
+  border-color: rgba(124, 58, 237, 0.24);
+  color: var(--accent-dark);
+}
+
+.builder-form {
+  display: grid;
+  gap: 16px;
+  margin-top: 22px;
+}
+
+.builder-grid,
+.move-entry {
+  display: grid;
+  gap: 12px;
+}
+
+.builder-grid {
+  grid-template-columns: 110px 1fr;
+}
+
+.move-entry {
+  grid-template-columns: 1fr 120px auto;
+  align-items: end;
+}
+
+.builder-move-list {
+  display: grid;
+  gap: 0;
+  margin: 18px 0 0;
+  padding: 0;
+}
+
+.builder-move-list li {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 2px 10px;
+  align-items: center;
+  border-bottom: 1px solid rgba(202, 215, 230, 0.7);
+  padding: 10px 0;
+}
+
+.builder-move-list li span {
+  grid-row: span 2;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(15, 159, 154, 0.13);
+  color: var(--primary-dark);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.builder-move-list li strong,
+.builder-move-list li small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.builder-move-list li small {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.builder-move-list li button {
+  grid-row: span 2;
+  min-height: 34px;
+  padding: 0 10px;
+  color: var(--danger);
+  font-size: 0.78rem;
+}
+
+.builder-empty {
+  display: block !important;
+  color: var(--muted);
+  font-weight: 750;
+}
+
+.builder-actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.builder-actions span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 850;
 }
 
 .schedule-header {
@@ -640,9 +756,25 @@ input:focus {
   }
 
   .form-grid,
+  .builder-grid,
+  .move-entry,
   .actions,
+  .builder-actions,
   .stats-grid {
     grid-template-columns: 1fr;
+  }
+
+  .workspace-tabs {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .template-row {
+    grid-template-columns: 1fr;
+  }
+
+  .template-actions {
+    justify-content: flex-start;
+    padding: 0 12px 10px;
   }
 
   .time-left {

@@ -27,7 +27,7 @@
           <p class="elapsed" id="elapsed-time">Elapsed 00:00</p>
           <div class="movement-card" id="movement-card">
             <p id="movement-kicker">Current movement</p>
-            <strong id="movement-label">Choose a template or enter your own workout.</strong>
+            <strong id="movement-label">Choose a workout or enter your own.</strong>
           </div>
         </div>
 
@@ -75,7 +75,8 @@
       <div class="side-rail">
         <section class="workspace-panel" aria-label="Workout workspace">
           <div class="workspace-tabs" role="tablist" aria-label="Workout workspace">
-            <button class="tab-button is-active" id="templates-tab-button" type="button" role="tab" aria-selected="true" aria-controls="templates-tab" data-tab="templates">Templates</button>
+            <button class="tab-button is-active" id="templates-tab-button" type="button" role="tab" aria-selected="true" aria-controls="templates-tab" data-tab="templates">Workouts</button>
+            <button class="tab-button" id="builder-tab-button" type="button" role="tab" aria-selected="false" aria-controls="builder-tab" data-tab="builder">Builder</button>
             <button class="tab-button" id="moves-tab-button" type="button" role="tab" aria-selected="false" aria-controls="moves-tab" data-tab="moves">Moves</button>
             <button class="tab-button" id="history-tab-button" type="button" role="tab" aria-selected="false" aria-controls="history-tab" data-tab="history">History</button>
           </div>
@@ -84,18 +85,66 @@
             <div class="panel-header">
               <div>
                 <p class="eyebrow">Plans</p>
-                <h2 id="templates-title">Workout Templates</h2>
+                <h2 id="templates-title">Workouts</h2>
               </div>
+              <button class="compact-button" id="new-template-button" type="button">New</button>
             </div>
 
             <div class="template-list" id="template-list"></div>
+          </section>
+
+          <section class="tab-panel" id="builder-tab" role="tabpanel" aria-labelledby="builder-tab-button" data-tab-panel="builder" hidden>
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Create</p>
+                <h2 id="builder-title">Workout Builder</h2>
+              </div>
+              <button class="compact-button" id="clear-builder-button" type="button">Clear</button>
+            </div>
+
+            <form class="builder-form" id="builder-form">
+              <label>
+                Workout name
+                <input id="builder-name" type="text" placeholder="Lower body EMOM" required>
+              </label>
+
+              <div class="builder-grid">
+                <label>
+                  Cycles
+                  <input id="builder-cycles" type="number" min="1" max="20" value="3" required>
+                </label>
+                <label>
+                  Tags
+                  <input id="builder-tags" type="text" placeholder="legs, kettlebell">
+                </label>
+              </div>
+
+              <div class="move-entry">
+                <label>
+                  Move
+                  <input id="builder-move-name" type="text" placeholder="Goblet squat">
+                </label>
+                <label>
+                  Target
+                  <input id="builder-move-target" type="text" placeholder="30 sec">
+                </label>
+                <button id="add-move-button" type="button">Add Move</button>
+              </div>
+            </form>
+
+            <ol class="builder-move-list" id="builder-move-list"></ol>
+
+            <div class="builder-actions">
+              <button class="primary" id="save-template-button" type="button">Save Workout</button>
+              <span id="builder-summary">0 moves · 3 cycles · 0 min</span>
+            </div>
           </section>
 
           <section class="tab-panel" id="moves-tab" role="tabpanel" aria-labelledby="moves-tab-button" data-tab-panel="moves" hidden>
             <div class="schedule-header">
               <div>
                 <p class="eyebrow">Selected workout</p>
-                <strong id="schedule-title">No template selected</strong>
+                <strong id="schedule-title">No workout selected</strong>
               </div>
               <span id="schedule-summary">Manual EMOM</span>
             </div>

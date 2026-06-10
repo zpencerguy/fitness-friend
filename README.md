@@ -9,9 +9,12 @@ In this app, one EMOM round is one minute total. By default, each minute is
 a 10-minute session. The work/rest seconds are configurable as long as they add
 up to 60 seconds.
 
-Workout templates are seeded from `/Users/spencerguy/Downloads/2026 Home Workout Sheet.xlsx`.
-Each template repeats the logged movement list by its cycle count, then converts
+Workouts are seeded from `/Users/spencerguy/Downloads/2026 Home Workout Sheet.xlsx`.
+Each workout repeats the logged movement list by its cycle count, then converts
 that into one-minute EMOM rounds.
+
+You can also create custom workouts in the Builder tab. Custom workouts are
+saved locally in the browser and appear alongside the seeded workouts.
 
 ## Run it
 

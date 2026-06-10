@@ -12,6 +12,7 @@ import { expandTemplate, workoutTemplates } from "./templates.js";
 const DB_NAME = "fitness-friend";
 const DB_VERSION = 3;
 const STORE_NAME = "emomWorkouts";
+const CUSTOM_TEMPLATES_KEY = "fitness-friend-custom-templates";
 
 const elements = {
   form: document.querySelector("#workout-form"),
@@ -37,6 +38,18 @@ const elements = {
   exportButton: document.querySelector("#export-button"),
   tabButtons: document.querySelectorAll("[data-tab]"),
   tabPanels: document.querySelectorAll("[data-tab-panel]"),
+  newTemplateButton: document.querySelector("#new-template-button"),
+  clearBuilderButton: document.querySelector("#clear-builder-button"),
+  builderTitle: document.querySelector("#builder-title"),
+  builderName: document.querySelector("#builder-name"),
+  builderCycles: document.querySelector("#builder-cycles"),
+  builderTags: document.querySelector("#builder-tags"),
+  builderMoveName: document.querySelector("#builder-move-name"),
+  builderMoveTarget: document.querySelector("#builder-move-target"),
+  addMoveButton: document.querySelector("#add-move-button"),
+  builderMoveList: document.querySelector("#builder-move-list"),
+  saveTemplateButton: document.querySelector("#save-template-button"),
+  builderSummary: document.querySelector("#builder-summary"),
   templateList: document.querySelector("#template-list"),
   scheduleTitle: document.querySelector("#schedule-title"),
   scheduleSummary: document.querySelector("#schedule-summary"),
@@ -56,6 +69,9 @@ const state = {
   isCompleting: false,
   selectedTemplate: null,
   activePlan: [],
+  templates: [],
+  builderEditingId: null,
+  builderMoves: [],
 };
 
 let dbPromise = openDatabase();
@@ -144,11 +160,27 @@ function getFormValues() {
     rounds: normalizeRounds(elements.rounds.value),
     workSeconds,
     restSeconds,
-  tags: elements.tags.value
+    tags: elements.tags.value
       .split(",")
       .map((tag) => tag.trim())
       .filter(Boolean),
   };
+}
+
+function loadTemplates() {
+  state.templates = [...workoutTemplates, ...loadCustomTemplates()];
+}
+
+function loadCustomTemplates() {
+  try {
+    return JSON.parse(localStorage.getItem(CUSTOM_TEMPLATES_KEY) ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomTemplates(templates) {
+  localStorage.setItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(templates));
 }
 
 function switchTab(tabName) {
@@ -311,7 +343,7 @@ function getMovementKicker(snapshot, movement) {
 }
 
 function getMovementLabel(snapshot, movement) {
-  if (!movement) return "Choose a template or enter your own workout.";
+  if (!movement) return "Choose a workout or enter your own.";
 
   const label = movement.target ? `${movement.move} · ${movement.target}` : movement.move;
 
@@ -324,26 +356,33 @@ function getMovementLabel(snapshot, movement) {
 }
 
 function renderTemplates() {
-  elements.templateList.innerHTML = workoutTemplates
+  elements.templateList.innerHTML = state.templates
     .map((template) => {
       const rounds = expandTemplate(template).length;
       const minutes = rounds * (ROUND_SECONDS / 60);
       const activeClass = state.selectedTemplate?.id === template.id ? " is-active" : "";
+      const customActions = template.isCustom
+        ? `<div class="template-actions">
+            <button type="button" data-edit-template-id="${template.id}">Edit</button>
+            <button type="button" data-delete-template-id="${template.id}">Delete</button>
+          </div>`
+        : "";
 
       return `
-        <button class="template-button${activeClass}" type="button" data-template-id="${template.id}">
-          <span>
+        <article class="template-row${activeClass}">
+          <button class="template-button" type="button" data-template-id="${template.id}">
             <strong>${escapeHtml(template.name)}</strong>
             <small>${template.movements.length} moves · ${template.cycles} cycles · ${minutes} min</small>
-          </span>
-        </button>
+          </button>
+          ${customActions}
+        </article>
       `;
     })
     .join("");
 }
 
 function selectTemplate(templateId) {
-  const template = workoutTemplates.find((candidate) => candidate.id === templateId);
+  const template = state.templates.find((candidate) => candidate.id === templateId);
   if (!template) return;
 
   const plan = expandTemplate(template);
@@ -362,9 +401,136 @@ function selectTemplate(templateId) {
   updateDisplay();
 }
 
+function startNewTemplate() {
+  state.builderEditingId = null;
+  state.builderMoves = [];
+  elements.builderTitle.textContent = "Workout Builder";
+  elements.builderName.value = "";
+  elements.builderCycles.value = "3";
+  elements.builderTags.value = "";
+  elements.builderMoveName.value = "";
+  elements.builderMoveTarget.value = "";
+  renderBuilder();
+  switchTab("builder");
+}
+
+function editTemplate(templateId) {
+  const template = state.templates.find((candidate) => candidate.id === templateId);
+  if (!template || !template.isCustom) return;
+
+  state.builderEditingId = template.id;
+  state.builderMoves = template.movements.map((movement) => ({ ...movement }));
+  elements.builderTitle.textContent = "Edit Workout";
+  elements.builderName.value = template.name;
+  elements.builderCycles.value = template.cycles;
+  elements.builderTags.value = template.tags.join(", ");
+  elements.builderMoveName.value = "";
+  elements.builderMoveTarget.value = "";
+  renderBuilder();
+  switchTab("builder");
+}
+
+function deleteTemplate(templateId) {
+  const customTemplates = loadCustomTemplates().filter((template) => template.id !== templateId);
+  saveCustomTemplates(customTemplates);
+
+  if (state.selectedTemplate?.id === templateId) {
+    state.selectedTemplate = null;
+    state.activePlan = [];
+    elements.workoutName.value = "";
+    elements.rounds.value = "10";
+    elements.tags.value = "";
+  }
+
+  loadTemplates();
+  renderTemplates();
+  renderSchedule();
+  updateDisplay();
+}
+
+function addBuilderMove() {
+  const move = elements.builderMoveName.value.trim();
+  const target = elements.builderMoveTarget.value.trim() || `${DEFAULT_WORK_SECONDS} sec`;
+
+  if (!move) {
+    elements.builderMoveName.focus();
+    return;
+  }
+
+  state.builderMoves.push({ move, target });
+  elements.builderMoveName.value = "";
+  elements.builderMoveTarget.value = "";
+  elements.builderMoveName.focus();
+  renderBuilder();
+}
+
+function removeBuilderMove(index) {
+  state.builderMoves.splice(index, 1);
+  renderBuilder();
+}
+
+function saveBuilderTemplate() {
+  const name = elements.builderName.value.trim();
+  const cycles = normalizeRounds(elements.builderCycles.value);
+  const tags = elements.builderTags.value
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+
+  if (!name) {
+    elements.builderName.focus();
+    return;
+  }
+
+  if (!state.builderMoves.length) {
+    elements.builderMoveName.focus();
+    return;
+  }
+
+  const customTemplates = loadCustomTemplates();
+  const template = {
+    id: state.builderEditingId ?? `custom-${Date.now()}`,
+    name,
+    source: "Custom",
+    tags,
+    cycles,
+    movements: state.builderMoves.map((movement) => ({ ...movement })),
+    isCustom: true,
+  };
+  const nextTemplates = state.builderEditingId
+    ? customTemplates.map((candidate) => (candidate.id === state.builderEditingId ? template : candidate))
+    : [...customTemplates, template];
+
+  saveCustomTemplates(nextTemplates);
+  loadTemplates();
+  selectTemplate(template.id);
+  state.builderEditingId = template.id;
+}
+
+function renderBuilder() {
+  const cycles = normalizeRounds(elements.builderCycles.value);
+  const minutes = state.builderMoves.length * cycles * (ROUND_SECONDS / 60);
+
+  elements.builderMoveList.innerHTML = state.builderMoves.length
+    ? state.builderMoves
+        .map(
+          (movement, index) => `
+            <li>
+              <span>${index + 1}</span>
+              <strong>${escapeHtml(movement.move)}</strong>
+              <small>${escapeHtml(movement.target)}</small>
+              <button type="button" data-remove-builder-move="${index}">Remove</button>
+            </li>
+          `,
+        )
+        .join("")
+    : '<li class="builder-empty">No moves added yet.</li>';
+  elements.builderSummary.textContent = `${state.builderMoves.length} moves · ${cycles} cycles · ${minutes} min`;
+}
+
 function renderSchedule() {
   if (!state.selectedTemplate) {
-    elements.scheduleTitle.textContent = "No template selected";
+    elements.scheduleTitle.textContent = "No workout selected";
     elements.scheduleSummary.textContent = "Manual EMOM";
     elements.scheduleList.innerHTML = "";
     return;
@@ -493,19 +659,51 @@ elements.restSeconds.addEventListener("input", () => {
   updateDisplay();
   renderSchedule();
 });
+elements.newTemplateButton.addEventListener("click", startNewTemplate);
+elements.clearBuilderButton.addEventListener("click", startNewTemplate);
+elements.addMoveButton.addEventListener("click", addBuilderMove);
+elements.saveTemplateButton.addEventListener("click", saveBuilderTemplate);
+elements.builderCycles.addEventListener("input", renderBuilder);
+elements.builderMoveTarget.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    addBuilderMove();
+  }
+});
+elements.builderMoveList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-remove-builder-move]");
+
+  if (!button) return;
+
+  removeBuilderMove(Number(button.dataset.removeBuilderMove));
+});
 elements.tabButtons.forEach((button) => {
   button.addEventListener("click", () => switchTab(button.dataset.tab));
 });
 elements.templateList.addEventListener("click", (event) => {
+  const deleteButton = event.target.closest("[data-delete-template-id]");
+  const editButton = event.target.closest("[data-edit-template-id]");
   const button = event.target.closest("[data-template-id]");
+
+  if (deleteButton) {
+    deleteTemplate(deleteButton.dataset.deleteTemplateId);
+    return;
+  }
+
+  if (editButton) {
+    editTemplate(editButton.dataset.editTemplateId);
+    return;
+  }
 
   if (!button || button.disabled) return;
 
   selectTemplate(button.dataset.templateId);
 });
 
+loadTemplates();
 renderTemplates();
 renderSchedule();
+renderBuilder();
 setStatus("ready");
 updateDisplay();
 renderHistory();
