@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Fitness Friend</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="timer-panel" aria-labelledby="app-title">
+        <div class="brand-row">
+          <div>
+            <p class="eyebrow">Fitness Friend</p>
+            <h1 id="app-title">EMOM Tracker</h1>
+          </div>
+          <div class="status-pill" id="timer-state">Ready</div>
+        </div>
+
+        <form id="workout-form" class="workout-form">
+          <label>
+            Workout name
+            <input id="workout-name" name="workoutName" type="text" placeholder="Kettlebell swings + pushups" required>
+          </label>
+
+          <div class="form-grid">
+            <label>
+              Rounds
+              <input id="rounds" name="rounds" type="number" min="1" max="99" value="10" required>
+            </label>
+            <label>
+              Work seconds
+              <input id="work-seconds" name="workSeconds" type="number" min="1" max="60" value="30" required>
+            </label>
+            <label>
+              Rest seconds
+              <input id="rest-seconds" name="restSeconds" type="number" min="0" max="59" value="30" required>
+            </label>
+            <label>
+              Tags
+              <input id="tags" name="tags" type="text" placeholder="strength, home, upper">
+            </label>
+          </div>
+          <p class="planned-duration" id="planned-duration">10 rounds = 10:00 total · 30s work / 30s rest</p>
+        </form>
+
+        <div class="timer-face" aria-live="polite">
+          <div class="phase-badge" id="phase-label">Work phase</div>
+          <p class="timer-label" id="round-label">Round 1 of 10</p>
+          <div class="movement-card" id="movement-card">
+            <p id="movement-kicker">Current movement</p>
+            <strong id="movement-label">Choose a template or enter your own workout.</strong>
+          </div>
+          <div class="time-left" id="time-left">01:00</div>
+          <div class="progress-track">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+          <p class="elapsed" id="elapsed-time">Elapsed 00:00</p>
+        </div>
+
+        <div class="actions">
+          <button class="primary" id="start-button" type="button">Start</button>
+          <button id="pause-button" type="button" disabled>Pause</button>
+          <button id="reset-button" type="button">Reset</button>
+          <button class="complete" id="complete-button" type="button" disabled>Complete</button>
+        </div>
+      </section>
+
+      <div class="side-rail">
+        <section class="templates-panel" aria-labelledby="templates-title">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Plans</p>
+              <h2 id="templates-title">Workout Templates</h2>
+            </div>
+          </div>
+
+          <div class="template-list" id="template-list"></div>
+
+          <div class="schedule-panel" id="schedule-panel">
+            <div class="schedule-header">
+              <strong id="schedule-title">No template selected</strong>
+              <span id="schedule-summary">Manual EMOM</span>
+            </div>
+            <ol class="schedule-list" id="schedule-list"></ol>
+          </div>
+        </section>
+
+        <section class="history-panel" aria-labelledby="history-title">
+          <div class="history-header">
+            <div>
+              <p class="eyebrow">Workout data</p>
+              <h2 id="history-title">Completed EMOMs</h2>
+            </div>
+            <button id="export-button" type="button">Export JSON</button>
+          </div>
+
+          <div class="stats-grid">
+            <div>
+              <span id="total-workouts">0</span>
+              <p>Workouts</p>
+            </div>
+            <div>
+              <span id="total-minutes">0</span>
+              <p>Minutes</p>
+            </div>
+            <div>
+              <span id="total-rounds">0</span>
+              <p>Rounds</p>
+            </div>
+          </div>
+
+          <div class="history-list" id="history-list">
+            <p class="empty-state">No workouts logged yet.</p>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>
