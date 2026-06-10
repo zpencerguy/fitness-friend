@@ -2,6 +2,8 @@
 
 A small local workout tracker starting with an EMOM timer.
 
+![Fitness Friend EMOM tracker](docs/screenshot.png)
+
 In this app, one EMOM round is one minute total. By default, each minute is
 30 seconds of active work and 30 seconds of rest, so 10 selected rounds creates
 a 10-minute session. The work/rest seconds are configurable as long as they add

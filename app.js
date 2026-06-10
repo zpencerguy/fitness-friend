@@ -33,7 +33,10 @@ const elements = {
   pauseButton: document.querySelector("#pause-button"),
   resetButton: document.querySelector("#reset-button"),
   completeButton: document.querySelector("#complete-button"),
+  setupDetails: document.querySelector("#setup-details"),
   exportButton: document.querySelector("#export-button"),
+  tabButtons: document.querySelectorAll("[data-tab]"),
+  tabPanels: document.querySelectorAll("[data-tab-panel]"),
   templateList: document.querySelector("#template-list"),
   scheduleTitle: document.querySelector("#schedule-title"),
   scheduleSummary: document.querySelector("#schedule-summary"),
@@ -141,11 +144,25 @@ function getFormValues() {
     rounds: normalizeRounds(elements.rounds.value),
     workSeconds,
     restSeconds,
-    tags: elements.tags.value
+  tags: elements.tags.value
       .split(",")
       .map((tag) => tag.trim())
       .filter(Boolean),
   };
+}
+
+function switchTab(tabName) {
+  elements.tabButtons.forEach((button) => {
+    const isActive = button.dataset.tab === tabName;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
+  });
+
+  elements.tabPanels.forEach((panel) => {
+    const isActive = panel.dataset.tabPanel === tabName;
+    panel.classList.toggle("is-active", isActive);
+    panel.hidden = !isActive;
+  });
 }
 
 function getElapsedMs(now = Date.now()) {
@@ -187,6 +204,7 @@ function updateDisplay() {
   elements.elapsedTime.textContent = `Elapsed ${formatClock(elapsedSeconds)}`;
   elements.progressFill.style.width = `${Math.min(100, snapshot.progress * 100)}%`;
   document.body.classList.toggle("rest-mode", snapshot.isRest && state.status !== "complete");
+  updateScheduleHighlight(snapshot);
 
   if (snapshot.elapsedMs >= snapshot.totalMs && state.status === "running" && !state.isCompleting) {
     completeWorkout();
@@ -212,7 +230,10 @@ function setStatus(status) {
 
 function startTimer() {
   validateIntervalInputs();
-  if (!elements.form.reportValidity()) return;
+  if (!elements.form.reportValidity()) {
+    elements.setupDetails.open = true;
+    return;
+  }
 
   if (state.status === "paused") {
     state.pausedMs += Date.now() - state.pausedAt;
@@ -225,6 +246,7 @@ function startTimer() {
 
   clearInterval(state.intervalId);
   state.intervalId = setInterval(updateDisplay, 250);
+  elements.setupDetails.open = false;
   setStatus("running");
   updateDisplay();
 }
@@ -312,7 +334,7 @@ function renderTemplates() {
         <button class="template-button${activeClass}" type="button" data-template-id="${template.id}">
           <span>
             <strong>${escapeHtml(template.name)}</strong>
-            <small>${rounds} rounds · ${minutes} min · ${template.cycles} cycles</small>
+            <small>${template.movements.length} moves · ${template.cycles} cycles · ${minutes} min</small>
           </span>
         </button>
       `;
@@ -332,9 +354,11 @@ function selectTemplate(templateId) {
   elements.workSeconds.value = DEFAULT_WORK_SECONDS;
   elements.restSeconds.value = DEFAULT_REST_SECONDS;
   elements.tags.value = template.tags.join(", ");
+  elements.setupDetails.open = false;
 
   renderTemplates();
   renderSchedule();
+  switchTab("moves");
   updateDisplay();
 }
 
@@ -350,18 +374,34 @@ function renderSchedule() {
   const { workSeconds, restSeconds } = getFormValues();
 
   elements.scheduleTitle.textContent = state.selectedTemplate.name;
-  elements.scheduleSummary.textContent = `${state.activePlan.length} rounds · ${totalMinutes} min · ${workSeconds}s work / ${restSeconds}s rest`;
-  elements.scheduleList.innerHTML = state.activePlan
+  elements.scheduleSummary.textContent = `${state.selectedTemplate.movements.length} distinct moves · ${state.selectedTemplate.cycles} cycles · ${totalMinutes} min · ${workSeconds}s/${restSeconds}s`;
+  elements.scheduleList.innerHTML = state.selectedTemplate.movements
     .map(
       (movement, index) => `
-        <li>
+        <li data-movement-index="${index + 1}">
           <span>${index + 1}</span>
           <strong>${escapeHtml(movement.move)}</strong>
-          <small>${escapeHtml(movement.target)} · cycle ${movement.cycle}</small>
+          <small>${escapeHtml(movement.target)}</small>
         </li>
       `,
     )
     .join("");
+  updateScheduleHighlight(getTimerSnapshot());
+}
+
+function updateScheduleHighlight(snapshot) {
+  const activeMovement = getActiveMovement(snapshot);
+  const upcomingMovement = snapshot.isRest ? state.activePlan[snapshot.currentRound] ?? null : null;
+
+  elements.scheduleList.querySelectorAll("[data-movement-index]").forEach((item) => {
+    item.classList.toggle("is-active", Boolean(activeMovement && !snapshot.isRest && item.dataset.movementIndex === String(activeMovement.movementIndex)));
+    item.classList.toggle("is-upcoming", Boolean(upcomingMovement && item.dataset.movementIndex === String(upcomingMovement.movementIndex)));
+  });
+
+  if (!state.selectedTemplate || !activeMovement) return;
+
+  const phaseText = snapshot.isRest ? `next: move ${upcomingMovement?.movementIndex ?? activeMovement.movementIndex}` : `active: move ${activeMovement.movementIndex}`;
+  elements.scheduleSummary.textContent = `${state.selectedTemplate.movements.length} distinct moves · cycle ${activeMovement.cycle} of ${state.selectedTemplate.cycles} · ${phaseText}`;
 }
 
 function renderWorkout(workout) {
@@ -452,6 +492,9 @@ elements.workSeconds.addEventListener("input", () => {
 elements.restSeconds.addEventListener("input", () => {
   updateDisplay();
   renderSchedule();
+});
+elements.tabButtons.forEach((button) => {
+  button.addEventListener("click", () => switchTab(button.dataset.tab));
 });
 elements.templateList.addEventListener("click", (event) => {
   const button = event.target.closest("[data-template-id]");
