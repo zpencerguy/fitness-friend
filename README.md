@@ -16,6 +16,9 @@ that into one-minute EMOM rounds.
 You can also create custom workouts in the Builder tab. Custom workouts are
 saved locally in the browser and appear alongside the seeded workouts.
 
+Workouts can be favorited with the star control. Favorited workouts sort to the
+top of the list, and the four muscle-gain research workouts start favorited.
+
 Workout visuals use a custom generated kettlebell movement sheet at
 `assets/kettlebell-moves-01.png`. The app only shows an illustration when a
 move has an explicit visual mapping; otherwise it shows a neutral placeholder
@@ -25,6 +28,9 @@ Additional kettlebell workouts were researched from Health, Woman & Home,
 Fit&Well, and SELF guides covering full-body kettlebell circuits, beginner
 fundamentals, mobility/core work, power/stability moves, and Turkish get-up
 practice.
+
+Hypertrophy-focused kettlebell programming notes and source links are saved in
+`research/kettlebell-hypertrophy-2026-06-12.md`.
 
 ## Run it
 

@@ -14,6 +14,13 @@ const DB_VERSION = 3;
 const STORE_NAME = "emomWorkouts";
 const CUSTOM_TEMPLATES_KEY = "fitness-friend-custom-templates";
 const SOUND_ENABLED_KEY = "fitness-friend-sound-enabled";
+const FAVORITE_TEMPLATES_KEY = "fitness-friend-favorite-templates";
+const DEFAULT_FAVORITE_TEMPLATE_IDS = [
+  "science-muscle-full-body",
+  "science-muscle-core",
+  "science-muscle-legs",
+  "science-muscle-upper",
+];
 const MOVE_ART = new Map(
   [
     ["Kettlebell Swing", "art-move-01"],
@@ -110,6 +117,7 @@ const state = {
   templates: [],
   builderEditingId: null,
   builderMoves: [],
+  favoriteTemplateIds: loadFavoriteTemplateIds(),
   soundEnabled: loadSoundPreference(),
   audioContext: null,
   audioUnlockPromise: null,
@@ -223,6 +231,22 @@ function loadCustomTemplates() {
 
 function saveCustomTemplates(templates) {
   localStorage.setItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(templates));
+}
+
+function loadFavoriteTemplateIds() {
+  try {
+    const savedTemplateIds = localStorage.getItem(FAVORITE_TEMPLATES_KEY);
+
+    if (!savedTemplateIds) return new Set(DEFAULT_FAVORITE_TEMPLATE_IDS);
+
+    return new Set(JSON.parse(savedTemplateIds));
+  } catch {
+    return new Set(DEFAULT_FAVORITE_TEMPLATE_IDS);
+  }
+}
+
+function saveFavoriteTemplateIds() {
+  localStorage.setItem(FAVORITE_TEMPLATES_KEY, JSON.stringify([...state.favoriteTemplateIds]));
 }
 
 function loadSoundPreference() {
@@ -552,20 +576,35 @@ function normalizeMoveName(move) {
 }
 
 function renderTemplates() {
-  elements.templateList.innerHTML = state.templates
+  elements.templateList.innerHTML = getSortedTemplates()
     .map((template) => {
       const rounds = expandTemplate(template).length;
       const minutes = rounds * (ROUND_SECONDS / 60);
       const activeClass = state.selectedTemplate?.id === template.id ? " is-active" : "";
+      const isFavorite = state.favoriteTemplateIds.has(template.id);
+      const favoriteClass = isFavorite ? " is-favorite" : "";
       const customActions = template.isCustom
-        ? `<div class="template-actions">
+        ? `
             <button type="button" data-edit-template-id="${template.id}">Edit</button>
             <button type="button" data-delete-template-id="${template.id}">Delete</button>
-          </div>`
+          `
         : "";
+      const actions = `
+        <div class="template-actions">
+          <button
+            class="favorite-button${favoriteClass}"
+            type="button"
+            data-favorite-template-id="${template.id}"
+            aria-label="${isFavorite ? "Unfavorite" : "Favorite"} ${escapeHtml(template.name)}"
+            aria-pressed="${String(isFavorite)}"
+            title="${isFavorite ? "Unfavorite" : "Favorite"}"
+          >${isFavorite ? "★" : "☆"}</button>
+          ${customActions}
+        </div>
+      `;
 
       return `
-        <article class="template-row${activeClass}">
+        <article class="template-row${activeClass}${favoriteClass}">
           <button class="template-button" type="button" data-template-id="${template.id}">
             <div class="template-art-strip">
               ${template.movements.slice(0, 4).map((movement) => renderMoveArt(movement, "move-art-small")).join("")}
@@ -576,11 +615,36 @@ function renderTemplates() {
               <small>${template.movements.length} moves · ${template.cycles} cycles · ${minutes} min</small>
             </span>
           </button>
-          ${customActions}
+          ${actions}
         </article>
       `;
     })
     .join("");
+}
+
+function getSortedTemplates() {
+  return state.templates
+    .map((template, index) => ({ template, index }))
+    .sort((a, b) => {
+      const aFavorite = state.favoriteTemplateIds.has(a.template.id);
+      const bFavorite = state.favoriteTemplateIds.has(b.template.id);
+
+      if (aFavorite !== bFavorite) return aFavorite ? -1 : 1;
+
+      return a.index - b.index;
+    })
+    .map(({ template }) => template);
+}
+
+function toggleTemplateFavorite(templateId) {
+  if (state.favoriteTemplateIds.has(templateId)) {
+    state.favoriteTemplateIds.delete(templateId);
+  } else {
+    state.favoriteTemplateIds.add(templateId);
+  }
+
+  saveFavoriteTemplateIds();
+  renderTemplates();
 }
 
 function selectTemplate(templateId) {
@@ -753,12 +817,15 @@ function renderSchedule() {
         <li data-movement-index="${index + 1}">
           ${renderMoveArt(movement, "move-art-thumb")}
           <span>${index + 1}</span>
-          <strong>${escapeHtml(movement.move)}</strong>
-          <small>
-            <b>${escapeHtml(movement.pattern ?? "Move")}</b>
-            ${escapeHtml(movement.target)}
-            ${movement.cue ? ` · ${escapeHtml(movement.cue)}` : ""}
-          </small>
+          <div class="schedule-content">
+            <strong>${escapeHtml(movement.move)}</strong>
+            <small>
+              <b>${escapeHtml(movement.pattern ?? "Move")}</b>
+              ${escapeHtml(movement.target)}
+              ${movement.cue ? ` · ${escapeHtml(movement.cue)}` : ""}
+            </small>
+            ${renderMuscleTags(movement)}
+          </div>
         </li>
       `,
     )
@@ -779,6 +846,20 @@ function updateScheduleHighlight(snapshot) {
 
   const phaseText = snapshot.isRest ? `next: move ${upcomingMovement?.movementIndex ?? activeMovement.movementIndex}` : `active: move ${activeMovement.movementIndex}`;
   elements.scheduleSummary.textContent = `${state.selectedTemplate.movements.length} distinct moves · cycle ${activeMovement.cycle} of ${state.selectedTemplate.cycles} · ${phaseText}`;
+}
+
+function renderMuscleTags(movement) {
+  const primaryMuscles = movement.primaryMuscles ?? [];
+  const secondaryMuscles = movement.secondaryMuscles ?? [];
+
+  if (!primaryMuscles.length && !secondaryMuscles.length) return "";
+
+  return `
+    <div class="muscle-tags" aria-label="Target muscles">
+      ${primaryMuscles.map((muscle) => `<span class="muscle-tag is-primary">${escapeHtml(muscle)}</span>`).join("")}
+      ${secondaryMuscles.map((muscle) => `<span class="muscle-tag">${escapeHtml(muscle)}</span>`).join("")}
+    </div>
+  `;
 }
 
 function renderWorkout(workout) {
@@ -893,9 +974,15 @@ elements.tabButtons.forEach((button) => {
   button.addEventListener("click", () => switchTab(button.dataset.tab));
 });
 elements.templateList.addEventListener("click", (event) => {
+  const favoriteButton = event.target.closest("[data-favorite-template-id]");
   const deleteButton = event.target.closest("[data-delete-template-id]");
   const editButton = event.target.closest("[data-edit-template-id]");
   const button = event.target.closest("[data-template-id]");
+
+  if (favoriteButton && !favoriteButton.disabled) {
+    toggleTemplateFavorite(favoriteButton.dataset.favoriteTemplateId);
+    return;
+  }
 
   if (deleteButton) {
     deleteTemplate(deleteButton.dataset.deleteTemplateId);

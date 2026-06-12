@@ -104,18 +104,26 @@ button:disabled {
 .side-rail {
   display: grid;
   align-self: start;
+  min-height: 0;
 }
 
 .workspace-panel {
+  display: flex;
   align-self: start;
-  min-height: calc(100vh - 64px);
+  height: calc(100vh - 64px);
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
   padding: 18px;
+  position: sticky;
+  top: 24px;
 }
 
 .brand-row,
 .history-header,
 .panel-header {
   display: flex;
+  flex: 0 0 auto;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
@@ -123,6 +131,7 @@ button:disabled {
 
 .workspace-tabs {
   display: grid;
+  flex: 0 0 auto;
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
   border: 1px solid var(--line);
@@ -147,11 +156,15 @@ button:disabled {
 
 .tab-panel {
   display: none;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
   padding-top: 22px;
 }
 
 .tab-panel.is-active {
-  display: block;
+  display: flex;
+  flex-direction: column;
 }
 
 .eyebrow {
@@ -510,6 +523,7 @@ select:focus {
 
 .stats-grid {
   display: grid;
+  flex: 0 0 auto;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
   margin: 22px 0;
@@ -517,8 +531,12 @@ select:focus {
 
 .template-list {
   display: grid;
+  flex: 1 1 auto;
   gap: 4px;
-  margin: 22px 0;
+  min-height: 0;
+  margin: 22px -6px 0 0;
+  overflow: auto;
+  padding-right: 6px;
 }
 
 .template-row {
@@ -531,6 +549,10 @@ select:focus {
 .template-row.is-active {
   border-left-color: var(--accent);
   background: rgba(124, 58, 237, 0.1);
+}
+
+.template-row.is-favorite:not(.is-active) {
+  border-left-color: rgba(15, 159, 154, 0.45);
 }
 
 .template-button {
@@ -579,6 +601,23 @@ select:focus {
   padding-right: 8px;
 }
 
+.favorite-button {
+  display: grid;
+  width: 36px;
+  min-height: 36px;
+  place-items: center;
+  border-color: rgba(202, 215, 230, 0.74);
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.favorite-button.is-favorite {
+  border-color: rgba(15, 159, 154, 0.26);
+  background: rgba(15, 159, 154, 0.12);
+  color: var(--primary-dark);
+}
+
 .template-art-strip {
   display: flex;
   align-items: center;
@@ -613,6 +652,7 @@ select:focus {
 }
 
 .builder-form {
+  flex: 0 0 auto;
   display: grid;
   gap: 16px;
   margin-top: 22px;
@@ -635,8 +675,11 @@ select:focus {
 
 .builder-move-list {
   display: grid;
+  flex: 1 1 auto;
   gap: 0;
+  min-height: 0;
   margin: 18px 0 0;
+  overflow: auto;
   padding: 0;
 }
 
@@ -708,6 +751,7 @@ select:focus {
 
 .builder-actions {
   display: grid;
+  flex: 0 0 auto;
   grid-template-columns: 1fr auto;
   align-items: center;
   gap: 12px;
@@ -722,6 +766,7 @@ select:focus {
 
 .schedule-header {
   display: grid;
+  flex: 0 0 auto;
   gap: 4px;
   border-bottom: 1px solid var(--line);
   padding: 0 0 14px;
@@ -735,18 +780,21 @@ select:focus {
 
 .schedule-list {
   display: grid;
-  max-height: calc(100vh - 250px);
-  margin: 14px 0 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  margin: 14px -6px 0 0;
   overflow: auto;
-  padding: 0;
+  padding: 0 6px 0 0;
 }
 
 .schedule-list li {
   display: grid;
   grid-template-columns: 44px 28px 1fr;
-  gap: 2px 10px;
+  gap: 0 10px;
+  align-items: start;
   border-bottom: 1px solid rgba(202, 215, 230, 0.7);
-  padding: 10px 14px;
+  padding: 14px;
   transition:
     background 160ms ease,
     border-color 160ms ease;
@@ -756,11 +804,11 @@ select:focus {
   border-bottom: 0;
 }
 
-.schedule-list li span {
-  grid-row: span 2;
+.schedule-list li > span {
   display: grid;
   width: 28px;
   height: 28px;
+  margin-top: 2px;
   place-items: center;
   border-radius: 999px;
   background: rgba(15, 159, 154, 0.13);
@@ -774,7 +822,7 @@ select:focus {
   background: rgba(15, 159, 154, 0.12);
 }
 
-.schedule-list li.is-active span {
+.schedule-list li.is-active > span {
   background: var(--primary);
   color: #ffffff;
 }
@@ -784,21 +832,53 @@ select:focus {
   background: rgba(124, 58, 237, 0.1);
 }
 
-.schedule-list li.is-upcoming span {
+.schedule-list li.is-upcoming > span {
   background: var(--accent);
   color: #ffffff;
 }
 
-.schedule-list li strong,
-.schedule-list li small {
+.schedule-content {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.schedule-content strong,
+.schedule-content small {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-.schedule-list li small {
+.schedule-content small {
   color: var(--muted);
   font-size: 0.76rem;
   font-weight: 750;
+  line-height: 1.35;
+}
+
+.muscle-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 3px;
+}
+
+.muscle-tag {
+  border: 1px solid rgba(202, 215, 230, 0.78);
+  border-radius: 999px;
+  background: rgba(96, 112, 140, 0.08);
+  color: var(--muted);
+  padding: 4px 8px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.1;
+  max-width: 100%;
+}
+
+.muscle-tag.is-primary {
+  border-color: rgba(15, 159, 154, 0.26);
+  background: rgba(15, 159, 154, 0.12);
+  color: var(--primary-dark);
 }
 
 .stats-grid div {
@@ -823,7 +903,11 @@ select:focus {
 
 .history-list {
   display: grid;
+  flex: 1 1 auto;
   gap: 12px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 6px;
 }
 
 .history-item {
@@ -895,6 +979,12 @@ select:focus {
 
   .timer-panel {
     min-height: auto;
+    position: static;
+  }
+
+  .workspace-panel {
+    height: calc(100vh - 20px);
+    min-height: 520px;
     position: static;
   }
 }
