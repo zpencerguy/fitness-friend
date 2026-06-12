@@ -40,6 +40,19 @@ python3 -m http.server 4173
 
 Open `http://localhost:4173`.
 
+## Deploy it
+
+This app is static, so it can be hosted on GitHub Pages. The workflow in
+`.github/workflows/pages.yml` deploys the repository root whenever `main` is
+pushed. In GitHub, set **Settings -> Pages -> Build and deployment** to
+**GitHub Actions**.
+
+After the first successful deploy, the site will be available at:
+
+```text
+https://zpencerguy.github.io/fitness-friend/
+```
+
 ## Test it
 
 ```sh
