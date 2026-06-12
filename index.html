@@ -26,8 +26,13 @@
           </div>
           <p class="elapsed" id="elapsed-time">Elapsed 00:00</p>
           <div class="movement-card" id="movement-card">
-            <p id="movement-kicker">Current movement</p>
-            <strong id="movement-label">Choose a workout or enter your own.</strong>
+            <div class="movement-visual">
+              <span class="move-art art-hinge" id="movement-art" role="img" aria-label="Movement illustration"></span>
+            </div>
+            <div>
+              <p id="movement-kicker">Current movement</p>
+              <strong id="movement-label">Choose a workout or enter your own.</strong>
+            </div>
           </div>
         </div>
 
@@ -127,6 +132,21 @@
                 <label>
                   Target
                   <input id="builder-move-target" type="text" placeholder="30 sec">
+                </label>
+                <label>
+                  Pattern
+                  <select id="builder-move-pattern">
+                    <option>Hinge</option>
+                    <option>Squat</option>
+                    <option>Pull</option>
+                    <option>Push</option>
+                    <option>Lunge</option>
+                    <option>Core</option>
+                    <option>Carry</option>
+                    <option>Mobility</option>
+                    <option>Power</option>
+                    <option>Conditioning</option>
+                  </select>
                 </label>
                 <button id="add-move-button" type="button">Add Move</button>
               </div>

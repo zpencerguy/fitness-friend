@@ -22,6 +22,7 @@ const elements = {
   restSeconds: document.querySelector("#rest-seconds"),
   tags: document.querySelector("#tags"),
   plannedDuration: document.querySelector("#planned-duration"),
+  movementArt: document.querySelector("#movement-art"),
   phaseLabel: document.querySelector("#phase-label"),
   movementKicker: document.querySelector("#movement-kicker"),
   movementLabel: document.querySelector("#movement-label"),
@@ -46,6 +47,7 @@ const elements = {
   builderTags: document.querySelector("#builder-tags"),
   builderMoveName: document.querySelector("#builder-move-name"),
   builderMoveTarget: document.querySelector("#builder-move-target"),
+  builderMovePattern: document.querySelector("#builder-move-pattern"),
   addMoveButton: document.querySelector("#add-move-button"),
   builderMoveList: document.querySelector("#builder-move-list"),
   saveTemplateButton: document.querySelector("#save-template-button"),
@@ -226,12 +228,14 @@ function updateDisplay() {
   const snapshot = getTimerSnapshot();
   const elapsedSeconds = Math.floor(snapshot.elapsedMs / 1000);
   const activeMovement = getActiveMovement(snapshot);
+  const visibleMovement = snapshot.isRest ? state.activePlan[snapshot.currentRound] ?? activeMovement : activeMovement;
 
   elements.plannedDuration.textContent = `${snapshot.rounds} rounds = ${formatClock(snapshot.totalMs / 1000)} total · ${snapshot.workSeconds}s work / ${snapshot.restSeconds}s rest`;
   elements.phaseLabel.textContent = `${snapshot.phaseName} phase`;
   elements.roundLabel.textContent = `Round ${snapshot.currentRound} of ${snapshot.rounds}`;
   elements.movementKicker.textContent = getMovementKicker(snapshot, activeMovement);
   elements.movementLabel.textContent = getMovementLabel(snapshot, activeMovement);
+  updateMovementArt(visibleMovement);
   elements.timeLeft.textContent = formatClock(snapshot.secondsLeft);
   elements.elapsedTime.textContent = `Elapsed ${formatClock(elapsedSeconds)}`;
   elements.progressFill.style.width = `${Math.min(100, snapshot.progress * 100)}%`;
@@ -355,6 +359,40 @@ function getMovementLabel(snapshot, movement) {
   return nextMovement.target ? `${nextMovement.move} · ${nextMovement.target}` : nextMovement.move;
 }
 
+function updateMovementArt(movement) {
+  const label = movement?.move ? `${movement.move} illustration` : "Movement illustration";
+
+  elements.movementArt.className = `move-art art-${getPatternSlug(movement)}`;
+  elements.movementArt.setAttribute("aria-label", label);
+}
+
+function getPatternSlug(movementOrPattern) {
+  const pattern =
+    typeof movementOrPattern === "string"
+      ? movementOrPattern
+      : movementOrPattern?.pattern ?? movementOrPattern?.move ?? "";
+  const normalized = pattern.toLowerCase();
+
+  if (normalized.includes("squat")) return "squat";
+  if (normalized.includes("row") || normalized.includes("pull") || normalized.includes("curl") || normalized.includes("arms")) return "pull";
+  if (normalized.includes("press") || normalized.includes("push") || normalized.includes("shoulder")) return "push";
+  if (normalized.includes("lunge")) return "lunge";
+  if (normalized.includes("core") || normalized.includes("twist") || normalized.includes("plank") || normalized.includes("get-up") || normalized.includes("sit")) return "core";
+  if (normalized.includes("carry") || normalized.includes("march")) return "carry";
+  if (normalized.includes("halo") || normalized.includes("mobility")) return "mobility";
+  if (normalized.includes("power") || normalized.includes("clean") || normalized.includes("swing") || normalized.includes("hinge") || normalized.includes("dead")) return "hinge";
+  if (normalized.includes("conditioning") || normalized.includes("burpee")) return "hinge";
+
+  return "hinge";
+}
+
+function renderMoveArt(movement, className = "") {
+  const slug = getPatternSlug(movement);
+  const label = escapeHtml(movement?.move ? `${movement.move} illustration` : `${slug} movement illustration`);
+
+  return `<span class="move-art art-${slug}${className ? ` ${className}` : ""}" role="img" aria-label="${label}"></span>`;
+}
+
 function renderTemplates() {
   elements.templateList.innerHTML = state.templates
     .map((template) => {
@@ -371,8 +409,14 @@ function renderTemplates() {
       return `
         <article class="template-row${activeClass}">
           <button class="template-button" type="button" data-template-id="${template.id}">
-            <strong>${escapeHtml(template.name)}</strong>
-            <small>${template.movements.length} moves · ${template.cycles} cycles · ${minutes} min</small>
+            <div class="template-art-strip">
+              ${template.movements.slice(0, 4).map((movement) => renderMoveArt(movement, "move-art-small")).join("")}
+            </div>
+            <span class="template-copy">
+              <strong>${escapeHtml(template.name)}</strong>
+              ${template.description ? `<span>${escapeHtml(template.description)}</span>` : ""}
+              <small>${template.movements.length} moves · ${template.cycles} cycles · ${minutes} min</small>
+            </span>
           </button>
           ${customActions}
         </article>
@@ -410,6 +454,7 @@ function startNewTemplate() {
   elements.builderTags.value = "";
   elements.builderMoveName.value = "";
   elements.builderMoveTarget.value = "";
+  elements.builderMovePattern.value = "Hinge";
   renderBuilder();
   switchTab("builder");
 }
@@ -426,6 +471,7 @@ function editTemplate(templateId) {
   elements.builderTags.value = template.tags.join(", ");
   elements.builderMoveName.value = "";
   elements.builderMoveTarget.value = "";
+  elements.builderMovePattern.value = "Hinge";
   renderBuilder();
   switchTab("builder");
 }
@@ -451,13 +497,14 @@ function deleteTemplate(templateId) {
 function addBuilderMove() {
   const move = elements.builderMoveName.value.trim();
   const target = elements.builderMoveTarget.value.trim() || `${DEFAULT_WORK_SECONDS} sec`;
+  const pattern = elements.builderMovePattern.value;
 
   if (!move) {
     elements.builderMoveName.focus();
     return;
   }
 
-  state.builderMoves.push({ move, target });
+  state.builderMoves.push({ move, target, pattern, cue: "" });
   elements.builderMoveName.value = "";
   elements.builderMoveTarget.value = "";
   elements.builderMoveName.focus();
@@ -516,9 +563,10 @@ function renderBuilder() {
         .map(
           (movement, index) => `
             <li>
+              ${renderMoveArt(movement, "move-art-thumb")}
               <span>${index + 1}</span>
               <strong>${escapeHtml(movement.move)}</strong>
-              <small>${escapeHtml(movement.target)}</small>
+              <small><b>${escapeHtml(movement.pattern ?? "Move")}</b> ${escapeHtml(movement.target)}</small>
               <button type="button" data-remove-builder-move="${index}">Remove</button>
             </li>
           `,
@@ -545,9 +593,14 @@ function renderSchedule() {
     .map(
       (movement, index) => `
         <li data-movement-index="${index + 1}">
+          ${renderMoveArt(movement, "move-art-thumb")}
           <span>${index + 1}</span>
           <strong>${escapeHtml(movement.move)}</strong>
-          <small>${escapeHtml(movement.target)}</small>
+          <small>
+            <b>${escapeHtml(movement.pattern ?? "Move")}</b>
+            ${escapeHtml(movement.target)}
+            ${movement.cue ? ` · ${escapeHtml(movement.cue)}` : ""}
+          </small>
         </li>
       `,
     )

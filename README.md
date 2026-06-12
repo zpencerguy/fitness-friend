@@ -16,6 +16,16 @@ that into one-minute EMOM rounds.
 You can also create custom workouts in the Builder tab. Custom workouts are
 saved locally in the browser and appear alongside the seeded workouts.
 
+Workout visuals use a custom generated kettlebell movement sheet at
+`assets/kettlebell-patterns.png`. The app maps movement patterns like hinge,
+squat, pull, push, lunge, core, carry, and mobility to individual tiles in that
+sheet.
+
+Additional kettlebell workouts were researched from Health, Woman & Home,
+Fit&Well, and SELF guides covering full-body kettlebell circuits, beginner
+fundamentals, mobility/core work, power/stability moves, and Turkish get-up
+practice.
+
 ## Run it
 
 ```sh

@@ -40,7 +40,8 @@ body.rest-mode {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -195,7 +196,8 @@ label {
   font-weight: 750;
 }
 
-input {
+input,
+select {
   width: 100%;
   min-height: 48px;
   border: 1px solid var(--line);
@@ -206,7 +208,8 @@ input {
   outline: none;
 }
 
-input:focus {
+input:focus,
+select:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 4px rgba(15, 159, 154, 0.16);
 }
@@ -247,13 +250,16 @@ input:focus {
 
 .movement-card {
   display: grid;
-  gap: 4px;
+  grid-template-columns: 82px 1fr;
+  gap: 14px;
+  align-items: center;
   width: min(560px, 100%);
-  min-height: 74px;
+  min-height: 104px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface-strong);
-  padding: 16px;
+  padding: 12px 16px 12px 12px;
+  text-align: left;
 }
 
 .movement-card p,
@@ -272,6 +278,58 @@ input:focus {
   overflow-wrap: anywhere;
   font-size: clamp(1.05rem, 2.2vw, 1.55rem);
   line-height: 1.08;
+}
+
+.movement-visual {
+  display: grid;
+  place-items: center;
+}
+
+.move-art {
+  display: block;
+  border: 1px solid rgba(202, 215, 230, 0.85);
+  border-radius: 8px;
+  background-image: url("./assets/kettlebell-patterns.png");
+  background-repeat: no-repeat;
+  background-size: 400% 200%;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.65);
+}
+
+.art-hinge {
+  background-position: 0% 0%;
+}
+
+.art-squat {
+  background-position: 33.333% 0%;
+}
+
+.art-pull {
+  background-position: 66.666% 0%;
+}
+
+.art-push {
+  background-position: 100% 0%;
+}
+
+.art-lunge {
+  background-position: 0% 100%;
+}
+
+.art-core {
+  background-position: 33.333% 100%;
+}
+
+.art-carry {
+  background-position: 66.666% 100%;
+}
+
+.art-mobility {
+  background-position: 100% 100%;
+}
+
+.movement-card .move-art {
+  width: 70px;
+  aspect-ratio: 1;
 }
 
 .rest-mode .movement-card {
@@ -424,8 +482,11 @@ input:focus {
 
 .template-button {
   display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
   min-height: 58px;
-  justify-items: start;
+  align-items: center;
+  justify-items: stretch;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -433,14 +494,23 @@ input:focus {
   text-align: left;
 }
 
-.template-button span {
+.template-copy {
   display: grid;
   gap: 5px;
+  min-width: 0;
 }
 
 .template-button strong,
+.template-copy span,
 .template-button small {
   display: block;
+}
+
+.template-copy span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .template-button small {
@@ -454,6 +524,26 @@ input:focus {
   align-items: center;
   gap: 6px;
   padding-right: 8px;
+}
+
+.template-art-strip {
+  display: flex;
+  align-items: center;
+  padding-left: 2px;
+}
+
+.template-art-strip .move-art-small {
+  width: 38px;
+  aspect-ratio: 1;
+  margin-left: -8px;
+  border-color: rgba(15, 159, 154, 0.18);
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 5px 16px rgba(16, 28, 61, 0.08);
+}
+
+.template-art-strip .move-art-small:first-child {
+  margin-left: 0;
 }
 
 .template-actions button,
@@ -499,7 +589,7 @@ input:focus {
 
 .builder-move-list li {
   display: grid;
-  grid-template-columns: 28px 1fr auto;
+  grid-template-columns: 44px 28px 1fr auto;
   gap: 2px 10px;
   align-items: center;
   border-bottom: 1px solid rgba(202, 215, 230, 0.7);
@@ -519,6 +609,12 @@ input:focus {
   font-weight: 900;
 }
 
+.move-art-thumb {
+  grid-row: span 2;
+  width: 42px;
+  aspect-ratio: 1;
+}
+
 .builder-move-list li strong,
 .builder-move-list li small {
   min-width: 0;
@@ -529,6 +625,18 @@ input:focus {
   color: var(--muted);
   font-size: 0.76rem;
   font-weight: 750;
+}
+
+.builder-move-list li small b,
+.schedule-list li small b {
+  display: inline-block;
+  margin-right: 6px;
+  border-radius: 999px;
+  background: rgba(124, 58, 237, 0.1);
+  color: var(--accent-dark);
+  padding: 2px 7px;
+  font-size: 0.68rem;
+  text-transform: uppercase;
 }
 
 .builder-move-list li button {
@@ -582,7 +690,7 @@ input:focus {
 
 .schedule-list li {
   display: grid;
-  grid-template-columns: 28px 1fr;
+  grid-template-columns: 44px 28px 1fr;
   gap: 2px 10px;
   border-bottom: 1px solid rgba(202, 215, 230, 0.7);
   padding: 10px 14px;
@@ -772,6 +880,14 @@ input:focus {
     grid-template-columns: 1fr;
   }
 
+  .template-button {
+    grid-template-columns: 1fr;
+  }
+
+  .template-art-strip {
+    display: none;
+  }
+
   .template-actions {
     justify-content: flex-start;
     padding: 0 12px 10px;
@@ -779,5 +895,22 @@ input:focus {
 
   .time-left {
     font-size: clamp(4.2rem, 25vw, 6rem);
+  }
+
+  .movement-card {
+    grid-template-columns: 58px 1fr;
+  }
+
+  .movement-card .move-art {
+    width: 50px;
+  }
+
+  .builder-move-list li,
+  .schedule-list li {
+    grid-template-columns: 34px 24px 1fr;
+  }
+
+  .move-art-thumb {
+    width: 32px;
   }
 }
