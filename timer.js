@@ -41,6 +41,7 @@ export function getTimerSnapshot({
     totalMs,
     elapsedMs: clampedElapsedMs,
     currentRound,
+    secondsIntoRound,
     isRest,
     phaseName: isRest ? "Rest" : "Work",
     secondsLeft: clampedElapsedMs >= totalMs ? 0 : secondsLeft,

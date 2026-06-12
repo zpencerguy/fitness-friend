@@ -289,41 +289,88 @@ select:focus {
   display: block;
   border: 1px solid rgba(202, 215, 230, 0.85);
   border-radius: 8px;
-  background-image: url("./assets/kettlebell-patterns.png");
+  background-image: url("./assets/kettlebell-moves-01.png");
   background-repeat: no-repeat;
-  background-size: 400% 200%;
+  background-size: 400% 400%;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.65);
 }
 
-.art-hinge {
+.move-art-placeholder {
+  background:
+    linear-gradient(135deg, rgba(15, 159, 154, 0.12), rgba(124, 58, 237, 0.1)),
+    var(--surface-strong);
+  position: relative;
+}
+
+.move-art-placeholder::after {
+  content: "";
+  position: absolute;
+  inset: 35%;
+  border: 2px solid rgba(96, 112, 140, 0.24);
+  border-radius: 999px;
+}
+
+.art-move-01 {
   background-position: 0% 0%;
 }
 
-.art-squat {
+.art-move-02 {
   background-position: 33.333% 0%;
 }
 
-.art-pull {
+.art-move-03 {
   background-position: 66.666% 0%;
 }
 
-.art-push {
+.art-move-04 {
   background-position: 100% 0%;
 }
 
-.art-lunge {
+.art-move-05 {
+  background-position: 0% 33.333%;
+}
+
+.art-move-06 {
+  background-position: 33.333% 33.333%;
+}
+
+.art-move-07 {
+  background-position: 66.666% 33.333%;
+}
+
+.art-move-08 {
+  background-position: 100% 33.333%;
+}
+
+.art-move-09 {
+  background-position: 0% 66.666%;
+}
+
+.art-move-10 {
+  background-position: 33.333% 66.666%;
+}
+
+.art-move-11 {
+  background-position: 66.666% 66.666%;
+}
+
+.art-move-12 {
+  background-position: 100% 66.666%;
+}
+
+.art-move-13 {
   background-position: 0% 100%;
 }
 
-.art-core {
+.art-move-14 {
   background-position: 33.333% 100%;
 }
 
-.art-carry {
+.art-move-15 {
   background-position: 66.666% 100%;
 }
 
-.art-mobility {
+.art-move-16 {
   background-position: 100% 100%;
 }
 
@@ -367,8 +414,14 @@ select:focus {
 
 .actions {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
+}
+
+#sound-button[aria-pressed="true"] {
+  border-color: rgba(15, 159, 154, 0.32);
+  background: rgba(15, 159, 154, 0.1);
+  color: var(--primary-dark);
 }
 
 .setup-details {

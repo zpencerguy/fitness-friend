@@ -13,6 +13,41 @@ const DB_NAME = "fitness-friend";
 const DB_VERSION = 3;
 const STORE_NAME = "emomWorkouts";
 const CUSTOM_TEMPLATES_KEY = "fitness-friend-custom-templates";
+const SOUND_ENABLED_KEY = "fitness-friend-sound-enabled";
+const MOVE_ART = new Map(
+  [
+    ["Kettlebell Swing", "art-move-01"],
+    ["Russian Swings", "art-move-01"],
+    ["Goblet Squat", "art-move-02"],
+    ["Bent Row (Alt)", "art-move-03"],
+    ["Bent Row (L)", "art-move-03"],
+    ["Bent Row (R)", "art-move-03"],
+    ["Bent-Over Row (L)", "art-move-03"],
+    ["Bent-Over Row (R)", "art-move-03"],
+    ["One-Arm Row (L)", "art-move-03"],
+    ["One-Arm Row (R)", "art-move-03"],
+    ["Overhead Press (L)", "art-move-04"],
+    ["Overhead Press (R)", "art-move-04"],
+    ["Goblet Reverse Lunge (Alt)", "art-move-05"],
+    ["Kettlebell Halo", "art-move-06"],
+    ["Kettlebell Halos (Alt)", "art-move-06"],
+    ["Suitcase March (L)", "art-move-07"],
+    ["Suitcase March (R)", "art-move-07"],
+    ["Half Turkish Get-Up (L)", "art-move-08"],
+    ["Half Turkish Get-Up (R)", "art-move-08"],
+    ["Kettlebell Deadlift", "art-move-09"],
+    ["Single-Leg Deadlift (L)", "art-move-10"],
+    ["Single-Leg Deadlift (R)", "art-move-10"],
+    ["Single-Arm Clean (L)", "art-move-11"],
+    ["Single-Arm Clean (R)", "art-move-11"],
+    ["Lateral Lunge Clean (L)", "art-move-12"],
+    ["Lateral Lunge Clean (R)", "art-move-12"],
+    ["Goblet Squat to Press", "art-move-13"],
+    ["Russian Twists with KB", "art-move-14"],
+    ["Pushups", "art-move-15"],
+    ["Burpees", "art-move-16"],
+  ].map(([move, className]) => [normalizeMoveName(move), className]),
+);
 
 const elements = {
   form: document.querySelector("#workout-form"),
@@ -34,6 +69,7 @@ const elements = {
   startButton: document.querySelector("#start-button"),
   pauseButton: document.querySelector("#pause-button"),
   resetButton: document.querySelector("#reset-button"),
+  soundButton: document.querySelector("#sound-button"),
   completeButton: document.querySelector("#complete-button"),
   setupDetails: document.querySelector("#setup-details"),
   exportButton: document.querySelector("#export-button"),
@@ -74,6 +110,10 @@ const state = {
   templates: [],
   builderEditingId: null,
   builderMoves: [],
+  soundEnabled: loadSoundPreference(),
+  audioContext: null,
+  audioUnlockPromise: null,
+  playedAudioCues: new Set(),
 };
 
 let dbPromise = openDatabase();
@@ -185,6 +225,14 @@ function saveCustomTemplates(templates) {
   localStorage.setItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(templates));
 }
 
+function loadSoundPreference() {
+  return localStorage.getItem(SOUND_ENABLED_KEY) !== "false";
+}
+
+function saveSoundPreference() {
+  localStorage.setItem(SOUND_ENABLED_KEY, String(state.soundEnabled));
+}
+
 function switchTab(tabName) {
   elements.tabButtons.forEach((button) => {
     const isActive = button.dataset.tab === tabName;
@@ -244,7 +292,10 @@ function updateDisplay() {
 
   if (snapshot.elapsedMs >= snapshot.totalMs && state.status === "running" && !state.isCompleting) {
     completeWorkout();
+    return;
   }
+
+  handleAudioCues(snapshot);
 }
 
 function setStatus(status) {
@@ -262,9 +313,10 @@ function setStatus(status) {
   elements.templateList.querySelectorAll("button").forEach((button) => {
     button.disabled = status === "running" || status === "paused";
   });
+  updateSoundButton();
 }
 
-function startTimer() {
+async function startTimer() {
   validateIntervalInputs();
   if (!elements.form.reportValidity()) {
     elements.setupDetails.open = true;
@@ -280,6 +332,7 @@ function startTimer() {
     state.isCompleting = false;
   }
 
+  await unlockAudio();
   clearInterval(state.intervalId);
   state.intervalId = setInterval(updateDisplay, 250);
   elements.setupDetails.open = false;
@@ -300,8 +353,107 @@ function resetTimer() {
   state.pausedAt = null;
   state.pausedMs = 0;
   state.isCompleting = false;
+  state.playedAudioCues.clear();
   setStatus("ready");
   updateDisplay();
+}
+
+async function toggleSound() {
+  state.soundEnabled = !state.soundEnabled;
+  saveSoundPreference();
+  updateSoundButton();
+
+  if (state.soundEnabled) {
+    await playTone({ frequency: 660, duration: 0.1, volume: 0.085, type: "sine" });
+  }
+}
+
+function updateSoundButton() {
+  elements.soundButton.textContent = state.soundEnabled ? "Sound On" : "Sound Off";
+  elements.soundButton.setAttribute("aria-pressed", String(state.soundEnabled));
+}
+
+async function unlockAudio() {
+  if (!state.soundEnabled) return null;
+  const AudioContext = window.AudioContext ?? window.webkitAudioContext;
+
+  if (!AudioContext) return null;
+
+  state.audioContext ??= new AudioContext();
+
+  if (state.audioContext.state === "suspended") {
+    state.audioUnlockPromise ??= state.audioContext.resume().finally(() => {
+      state.audioUnlockPromise = null;
+    });
+    try {
+      await state.audioUnlockPromise;
+    } catch {
+      return null;
+    }
+  }
+
+  return state.audioContext;
+}
+
+function handleAudioCues(snapshot) {
+  if (!state.soundEnabled || state.status !== "running") return;
+
+  if (!snapshot.isRest && snapshot.secondsIntoRound === 0) {
+    playAudioCue(`round-${snapshot.currentRound}`, () => playRoundStartCue());
+  }
+
+  if (snapshot.isRest && snapshot.secondsIntoRound === snapshot.workSeconds) {
+    playAudioCue(`rest-${snapshot.currentRound}`, () => playRestStartCue());
+  }
+
+  if (!snapshot.isRest && snapshot.secondsLeft <= 3 && snapshot.secondsLeft > 0) {
+    playAudioCue(`work-countdown-${snapshot.currentRound}-${snapshot.secondsLeft}`, () => playCountdownCue(snapshot.secondsLeft));
+  }
+
+  if (snapshot.isRest && snapshot.secondsLeft <= 3 && snapshot.secondsLeft > 0) {
+    playAudioCue(`rest-countdown-${snapshot.currentRound}-${snapshot.secondsLeft}`, () => playCountdownCue(snapshot.secondsLeft));
+  }
+}
+
+function playAudioCue(key, callback) {
+  if (state.playedAudioCues.has(key)) return;
+
+  state.playedAudioCues.add(key);
+  callback();
+}
+
+function playRoundStartCue() {
+  playTone({ frequency: 880, duration: 0.1, volume: 0.15, type: "triangle" });
+  window.setTimeout(() => playTone({ frequency: 1175, duration: 0.12, volume: 0.14, type: "triangle" }), 110);
+}
+
+function playRestStartCue() {
+  playTone({ frequency: 520, duration: 0.11, volume: 0.1, type: "sine" });
+}
+
+function playCountdownCue(secondsLeft) {
+  const frequency = secondsLeft === 1 ? 760 : 620;
+  playTone({ frequency, duration: 0.08, volume: 0.08, type: "sine" });
+}
+
+async function playTone({ frequency, duration, volume, type }) {
+  const audioContext = await unlockAudio();
+
+  if (!audioContext || audioContext.state !== "running") return;
+
+  const now = audioContext.currentTime;
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+
+  oscillator.type = type;
+  oscillator.frequency.setValueAtTime(frequency, now);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(volume, now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+  oscillator.connect(gain);
+  gain.connect(audioContext.destination);
+  oscillator.start(now);
+  oscillator.stop(now + duration + 0.02);
 }
 
 async function completeWorkout() {
@@ -360,37 +512,43 @@ function getMovementLabel(snapshot, movement) {
 }
 
 function updateMovementArt(movement) {
-  const label = movement?.move ? `${movement.move} illustration` : "Movement illustration";
+  const artClass = getMoveArtClass(movement);
 
-  elements.movementArt.className = `move-art art-${getPatternSlug(movement)}`;
-  elements.movementArt.setAttribute("aria-label", label);
-}
+  elements.movementArt.className = artClass ? `move-art ${artClass}` : "move-art move-art-placeholder";
 
-function getPatternSlug(movementOrPattern) {
-  const pattern =
-    typeof movementOrPattern === "string"
-      ? movementOrPattern
-      : movementOrPattern?.pattern ?? movementOrPattern?.move ?? "";
-  const normalized = pattern.toLowerCase();
+  if (artClass && movement?.move) {
+    elements.movementArt.setAttribute("role", "img");
+    elements.movementArt.setAttribute("aria-label", `${movement.move} illustration`);
+    elements.movementArt.removeAttribute("aria-hidden");
+    return;
+  }
 
-  if (normalized.includes("squat")) return "squat";
-  if (normalized.includes("row") || normalized.includes("pull") || normalized.includes("curl") || normalized.includes("arms")) return "pull";
-  if (normalized.includes("press") || normalized.includes("push") || normalized.includes("shoulder")) return "push";
-  if (normalized.includes("lunge")) return "lunge";
-  if (normalized.includes("core") || normalized.includes("twist") || normalized.includes("plank") || normalized.includes("get-up") || normalized.includes("sit")) return "core";
-  if (normalized.includes("carry") || normalized.includes("march")) return "carry";
-  if (normalized.includes("halo") || normalized.includes("mobility")) return "mobility";
-  if (normalized.includes("power") || normalized.includes("clean") || normalized.includes("swing") || normalized.includes("hinge") || normalized.includes("dead")) return "hinge";
-  if (normalized.includes("conditioning") || normalized.includes("burpee")) return "hinge";
-
-  return "hinge";
+  elements.movementArt.removeAttribute("role");
+  elements.movementArt.removeAttribute("aria-label");
+  elements.movementArt.setAttribute("aria-hidden", "true");
 }
 
 function renderMoveArt(movement, className = "") {
-  const slug = getPatternSlug(movement);
-  const label = escapeHtml(movement?.move ? `${movement.move} illustration` : `${slug} movement illustration`);
+  const artClass = getMoveArtClass(movement);
 
-  return `<span class="move-art art-${slug}${className ? ` ${className}` : ""}" role="img" aria-label="${label}"></span>`;
+  if (!artClass) {
+    return `<span class="move-art move-art-placeholder${className ? ` ${className}` : ""}" aria-hidden="true"></span>`;
+  }
+
+  const label = escapeHtml(movement?.move ? `${movement.move} illustration` : "Movement illustration");
+
+  return `<span class="move-art ${artClass}${className ? ` ${className}` : ""}" role="img" aria-label="${label}"></span>`;
+}
+
+function getMoveArtClass(movement) {
+  return MOVE_ART.get(normalizeMoveName(movement?.move)) ?? null;
+}
+
+function normalizeMoveName(move) {
+  return String(move ?? "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function renderTemplates() {
@@ -701,6 +859,7 @@ async function exportWorkouts() {
 elements.startButton.addEventListener("click", startTimer);
 elements.pauseButton.addEventListener("click", pauseTimer);
 elements.resetButton.addEventListener("click", resetTimer);
+elements.soundButton.addEventListener("click", toggleSound);
 elements.completeButton.addEventListener("click", completeWorkout);
 elements.exportButton.addEventListener("click", exportWorkouts);
 elements.rounds.addEventListener("input", updateDisplay);
@@ -758,5 +917,6 @@ renderTemplates();
 renderSchedule();
 renderBuilder();
 setStatus("ready");
+updateSoundButton();
 updateDisplay();
 renderHistory();
