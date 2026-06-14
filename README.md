@@ -1,8 +1,8 @@
-# Fitness Friend
+# BellForge
 
-A small local workout tracker starting with an EMOM timer.
+Equipment-aware strength training built around an EMOM timer.
 
-![Fitness Friend EMOM tracker](docs/screenshot.png)
+![BellForge EMOM timer](docs/screenshot.png)
 
 In this app, one EMOM round is one minute total. By default, each minute is
 30 seconds of active work and 30 seconds of rest, so 10 selected rounds creates
@@ -15,6 +15,14 @@ that into one-minute EMOM rounds.
 
 You can also create custom workouts in the Builder tab. Custom workouts are
 saved locally in the browser and appear alongside the seeded workouts.
+
+The Equipment tab stores selected workout gear in the browser. Bodyweight,
+kettlebell, dumbbells, and barbell start selected, and custom gear can be added
+for future workout planning.
+
+The Plan tab adds a weekly planner and 12-week progress heatmap. Planned
+sessions can be assigned from saved workouts, started from the plan, skipped,
+cleared, and automatically marked complete when the planned workout finishes.
 
 Workouts can be favorited with the star control. Favorited workouts sort to the
 top of the list, and the four muscle-gain research workouts start favorited.
@@ -61,10 +69,12 @@ node timer.test.js
 
 ## Current data model
 
-Completed workouts are stored in the browser with IndexedDB under:
+Completed workouts are stored in the browser with IndexedDB under the original
+local database name so existing browser data continues to load:
 
 - Database: `fitness-friend`
 - Store: `emomWorkouts`
+- Store: `weeklyPlans`
 
 Each completed EMOM saves:
 
@@ -76,6 +86,7 @@ Each completed EMOM saves:
 - `plannedDurationSeconds`
 - `workSecondsPerRound`
 - `restSecondsPerRound`
+- `equipment`
 - `type`
 
 Use the Export JSON button to download the current local workout history.

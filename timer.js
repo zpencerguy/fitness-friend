@@ -10,8 +10,11 @@ export function normalizeIntervalSeconds(value, fallback = 0) {
   return Math.max(0, Math.min(ROUND_SECONDS, Number(value) || fallback));
 }
 
-export function getPlannedDurationSeconds(rounds) {
-  return normalizeRounds(rounds) * ROUND_SECONDS;
+export function getPlannedDurationSeconds(rounds, restSeconds = DEFAULT_REST_SECONDS) {
+  const normalizedRounds = normalizeRounds(rounds);
+  const normalizedRestSeconds = normalizeIntervalSeconds(restSeconds, DEFAULT_REST_SECONDS);
+
+  return Math.max(1, normalizedRounds * ROUND_SECONDS - normalizedRestSeconds);
 }
 
 export function getTimerSnapshot({
@@ -24,12 +27,13 @@ export function getTimerSnapshot({
   const normalizedRounds = normalizeRounds(rounds);
   const normalizedWorkSeconds = normalizeIntervalSeconds(workSeconds, DEFAULT_WORK_SECONDS);
   const normalizedRestSeconds = normalizeIntervalSeconds(restSeconds, DEFAULT_REST_SECONDS);
-  const totalMs = getPlannedDurationSeconds(normalizedRounds) * 1000;
+  const totalMs = getPlannedDurationSeconds(normalizedRounds, normalizedRestSeconds) * 1000;
   const clampedElapsedMs = Math.min(Math.max(0, elapsedMs), totalMs);
   const elapsedSeconds = Math.floor(clampedElapsedMs / 1000);
   const currentRound = Math.min(normalizedRounds, Math.floor(elapsedSeconds / ROUND_SECONDS) + 1);
   const secondsIntoRound = elapsedSeconds % ROUND_SECONDS;
-  const isRest = secondsIntoRound >= normalizedWorkSeconds;
+  const isComplete = status === "complete" || clampedElapsedMs >= totalMs;
+  const isRest = !isComplete && secondsIntoRound >= normalizedWorkSeconds;
   const phaseSeconds = isRest ? normalizedRestSeconds : normalizedWorkSeconds;
   const secondsIntoPhase = isRest ? secondsIntoRound - normalizedWorkSeconds : secondsIntoRound;
   const secondsLeft = status === "complete" ? 0 : phaseSeconds - secondsIntoPhase;
@@ -43,7 +47,7 @@ export function getTimerSnapshot({
     currentRound,
     secondsIntoRound,
     isRest,
-    phaseName: isRest ? "Rest" : "Work",
+    phaseName: isComplete ? "Complete" : isRest ? "Rest" : "Work",
     secondsLeft: clampedElapsedMs >= totalMs ? 0 : secondsLeft,
     progress: totalMs > 0 ? clampedElapsedMs / totalMs : 0,
   };

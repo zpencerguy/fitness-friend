@@ -10,16 +10,68 @@ import {
 import { expandTemplate, workoutTemplates } from "./templates.js";
 
 const DB_NAME = "fitness-friend";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const STORE_NAME = "emomWorkouts";
+const PLAN_STORE_NAME = "weeklyPlans";
 const CUSTOM_TEMPLATES_KEY = "fitness-friend-custom-templates";
 const SOUND_ENABLED_KEY = "fitness-friend-sound-enabled";
 const FAVORITE_TEMPLATES_KEY = "fitness-friend-favorite-templates";
+const EQUIPMENT_KEY = "fitness-friend-equipment";
 const DEFAULT_FAVORITE_TEMPLATE_IDS = [
   "science-muscle-full-body",
   "science-muscle-core",
   "science-muscle-legs",
   "science-muscle-upper",
+];
+const DEFAULT_EQUIPMENT = [
+  {
+    id: "gear-bodyweight",
+    name: "Bodyweight",
+    category: "Bodyweight",
+    detail: "Floor work, pushups, core",
+    selected: true,
+    isPreset: true,
+  },
+  {
+    id: "gear-kettlebell",
+    name: "Kettlebell",
+    category: "Weights",
+    detail: "Swings, carries, presses",
+    selected: true,
+    isPreset: true,
+  },
+  {
+    id: "gear-dumbbells",
+    name: "Dumbbells",
+    category: "Weights",
+    detail: "Pairs or adjustable",
+    selected: true,
+    isPreset: true,
+  },
+  {
+    id: "gear-barbell",
+    name: "Barbell",
+    category: "Weights",
+    detail: "Barbell strength work",
+    selected: true,
+    isPreset: true,
+  },
+  {
+    id: "gear-bench",
+    name: "Bench",
+    category: "Accessory",
+    detail: "Presses, rows, step-ups",
+    selected: false,
+    isPreset: true,
+  },
+  {
+    id: "gear-resistance-bands",
+    name: "Resistance Bands",
+    category: "Accessory",
+    detail: "Warmups, pulls, mobility",
+    selected: false,
+    isPreset: true,
+  },
 ];
 const MOVE_ART = new Map(
   [
@@ -57,13 +109,11 @@ const MOVE_ART = new Map(
 );
 
 const elements = {
-  form: document.querySelector("#workout-form"),
   workoutName: document.querySelector("#workout-name"),
   rounds: document.querySelector("#rounds"),
   workSeconds: document.querySelector("#work-seconds"),
   restSeconds: document.querySelector("#rest-seconds"),
   tags: document.querySelector("#tags"),
-  plannedDuration: document.querySelector("#planned-duration"),
   movementArt: document.querySelector("#movement-art"),
   phaseLabel: document.querySelector("#phase-label"),
   movementKicker: document.querySelector("#movement-kicker"),
@@ -78,10 +128,21 @@ const elements = {
   resetButton: document.querySelector("#reset-button"),
   soundButton: document.querySelector("#sound-button"),
   completeButton: document.querySelector("#complete-button"),
-  setupDetails: document.querySelector("#setup-details"),
   exportButton: document.querySelector("#export-button"),
   tabButtons: document.querySelectorAll("[data-tab]"),
   tabPanels: document.querySelectorAll("[data-tab-panel]"),
+  planTitle: document.querySelector("#plan-title"),
+  plannerGrid: document.querySelector("#planner-grid"),
+  plannerForm: document.querySelector("#planner-form"),
+  plannerDate: document.querySelector("#planner-date"),
+  plannerTemplate: document.querySelector("#planner-template"),
+  plannerFocus: document.querySelector("#planner-focus"),
+  savePlanButton: document.querySelector("#save-plan-button"),
+  previousWeekButton: document.querySelector("#previous-week-button"),
+  todayWeekButton: document.querySelector("#today-week-button"),
+  nextWeekButton: document.querySelector("#next-week-button"),
+  progressSummary: document.querySelector("#progress-summary"),
+  progressHeatmap: document.querySelector("#progress-heatmap"),
   newTemplateButton: document.querySelector("#new-template-button"),
   clearBuilderButton: document.querySelector("#clear-builder-button"),
   builderTitle: document.querySelector("#builder-title"),
@@ -95,6 +156,13 @@ const elements = {
   builderMoveList: document.querySelector("#builder-move-list"),
   saveTemplateButton: document.querySelector("#save-template-button"),
   builderSummary: document.querySelector("#builder-summary"),
+  equipmentForm: document.querySelector("#equipment-form"),
+  equipmentName: document.querySelector("#equipment-name"),
+  equipmentCategory: document.querySelector("#equipment-category"),
+  equipmentDetail: document.querySelector("#equipment-detail"),
+  addEquipmentButton: document.querySelector("#add-equipment-button"),
+  equipmentCount: document.querySelector("#equipment-count"),
+  equipmentList: document.querySelector("#equipment-list"),
   templateList: document.querySelector("#template-list"),
   scheduleTitle: document.querySelector("#schedule-title"),
   scheduleSummary: document.querySelector("#schedule-summary"),
@@ -103,6 +171,7 @@ const elements = {
   totalWorkouts: document.querySelector("#total-workouts"),
   totalMinutes: document.querySelector("#total-minutes"),
   totalRounds: document.querySelector("#total-rounds"),
+  celebration: document.querySelector("#celebration"),
 };
 
 const state = {
@@ -117,11 +186,15 @@ const state = {
   templates: [],
   builderEditingId: null,
   builderMoves: [],
+  equipment: loadEquipment(),
+  activePlanSessionId: null,
+  currentWeekStart: getStartOfWeek(new Date()),
   favoriteTemplateIds: loadFavoriteTemplateIds(),
   soundEnabled: loadSoundPreference(),
   audioContext: null,
   audioUnlockPromise: null,
   playedAudioCues: new Set(),
+  celebrationTimeoutId: null,
 };
 
 let dbPromise = openDatabase();
@@ -139,6 +212,14 @@ function openDatabase() {
               autoIncrement: true,
             })
           : request.transaction.objectStore(STORE_NAME);
+
+      if (!db.objectStoreNames.contains(PLAN_STORE_NAME)) {
+        const planStore = db.createObjectStore(PLAN_STORE_NAME, {
+          keyPath: "id",
+        });
+        planStore.createIndex("date", "date");
+        planStore.createIndex("status", "status");
+      }
 
       if (!store.indexNames.contains("completedAt")) {
         store.createIndex("completedAt", "completedAt");
@@ -161,7 +242,10 @@ function openDatabase() {
           if (workout.type === "EMOM" && workout.rounds) {
             cursor.update({
               ...workout,
-              plannedDurationSeconds: getPlannedDurationSeconds(workout.rounds),
+              plannedDurationSeconds: getPlannedDurationSeconds(
+                workout.rounds,
+                workout.restSecondsPerRound ?? DEFAULT_REST_SECONDS,
+              ),
               workSecondsPerRound: workout.workSecondsPerRound ?? DEFAULT_WORK_SECONDS,
               restSecondsPerRound: workout.restSecondsPerRound ?? DEFAULT_REST_SECONDS,
             });
@@ -178,11 +262,15 @@ function openDatabase() {
 }
 
 function withStore(mode, callback) {
+  return withNamedStore(STORE_NAME, mode, callback);
+}
+
+function withNamedStore(storeName, mode, callback) {
   return dbPromise.then(
     (db) =>
       new Promise((resolve, reject) => {
-        const transaction = db.transaction(STORE_NAME, mode);
-        const store = transaction.objectStore(STORE_NAME);
+        const transaction = db.transaction(storeName, mode);
+        const store = transaction.objectStore(storeName);
         const request = callback(store);
 
         transaction.addEventListener("complete", () => resolve(request?.result));
@@ -201,12 +289,60 @@ function getWorkouts() {
   );
 }
 
+function putPlanSession(session) {
+  return withNamedStore(PLAN_STORE_NAME, "readwrite", (store) => store.put(session));
+}
+
+function deletePlanSession(sessionId) {
+  return withNamedStore(PLAN_STORE_NAME, "readwrite", (store) => store.delete(sessionId));
+}
+
+function getPlanSessions() {
+  return withNamedStore(PLAN_STORE_NAME, "readonly", (store) => store.getAll()).then((sessions) =>
+    sessions.sort((a, b) => a.date.localeCompare(b.date)),
+  );
+}
+
+function getDateKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function parseDateKey(dateKey) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function getStartOfWeek(date) {
+  const start = new Date(date);
+  const day = start.getDay();
+  const offset = day === 0 ? -6 : 1 - day;
+  start.setDate(start.getDate() + offset);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+function addDays(date, days) {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate;
+}
+
+function getWeekDays(weekStart = state.currentWeekStart) {
+  return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
+}
+
+function getEffectivePlanStatus(session, todayKey = getDateKey(new Date())) {
+  if (!session) return "empty";
+  if (session.status === "planned" && session.date < todayKey) return "missed";
+  return session.status;
+}
+
 function getFormValues() {
   const workSeconds = normalizeIntervalSeconds(elements.workSeconds.value, DEFAULT_WORK_SECONDS);
   const restSeconds = normalizeIntervalSeconds(elements.restSeconds.value, DEFAULT_REST_SECONDS);
 
   return {
-    name: elements.workoutName.value.trim(),
+    name: elements.workoutName.value.trim() || state.selectedTemplate?.name || "Manual EMOM",
     rounds: normalizeRounds(elements.rounds.value),
     workSeconds,
     restSeconds,
@@ -247,6 +383,53 @@ function loadFavoriteTemplateIds() {
 
 function saveFavoriteTemplateIds() {
   localStorage.setItem(FAVORITE_TEMPLATES_KEY, JSON.stringify([...state.favoriteTemplateIds]));
+}
+
+function loadEquipment() {
+  try {
+    const savedEquipment = JSON.parse(localStorage.getItem(EQUIPMENT_KEY) ?? "null");
+
+    if (!Array.isArray(savedEquipment)) return DEFAULT_EQUIPMENT.map((equipment) => ({ ...equipment }));
+
+    const defaultIds = new Set(DEFAULT_EQUIPMENT.map((equipment) => equipment.id));
+    const savedById = new Map(savedEquipment.map((equipment) => [equipment.id, equipment]));
+    const mergedPresets = DEFAULT_EQUIPMENT.map((equipment) => {
+      const saved = savedById.get(equipment.id);
+
+      return sanitizeEquipment({
+        ...equipment,
+        selected: saved?.selected ?? equipment.selected,
+        detail: saved?.detail ?? equipment.detail,
+      });
+    });
+    const customEquipment = savedEquipment
+      .filter((equipment) => equipment?.id && !defaultIds.has(equipment.id))
+      .map((equipment) => sanitizeEquipment({ ...equipment, isPreset: false }))
+      .filter((equipment) => equipment.name);
+
+    return [...mergedPresets, ...customEquipment];
+  } catch {
+    return DEFAULT_EQUIPMENT.map((equipment) => ({ ...equipment }));
+  }
+}
+
+function sanitizeEquipment(equipment) {
+  return {
+    id: String(equipment.id ?? `gear-${Date.now()}`),
+    name: String(equipment.name ?? "").trim(),
+    category: String(equipment.category ?? "Accessory").trim() || "Accessory",
+    detail: String(equipment.detail ?? "").trim(),
+    selected: Boolean(equipment.selected),
+    isPreset: Boolean(equipment.isPreset),
+  };
+}
+
+function saveEquipment() {
+  localStorage.setItem(EQUIPMENT_KEY, JSON.stringify(state.equipment));
+}
+
+function getSelectedEquipment() {
+  return state.equipment.filter((equipment) => equipment.selected);
 }
 
 function loadSoundPreference() {
@@ -302,8 +485,7 @@ function updateDisplay() {
   const activeMovement = getActiveMovement(snapshot);
   const visibleMovement = snapshot.isRest ? state.activePlan[snapshot.currentRound] ?? activeMovement : activeMovement;
 
-  elements.plannedDuration.textContent = `${snapshot.rounds} rounds = ${formatClock(snapshot.totalMs / 1000)} total · ${snapshot.workSeconds}s work / ${snapshot.restSeconds}s rest`;
-  elements.phaseLabel.textContent = `${snapshot.phaseName} phase`;
+  elements.phaseLabel.textContent = snapshot.phaseName === "Complete" ? "Complete" : `${snapshot.phaseName} phase`;
   elements.roundLabel.textContent = `Round ${snapshot.currentRound} of ${snapshot.rounds}`;
   elements.movementKicker.textContent = getMovementKicker(snapshot, activeMovement);
   elements.movementLabel.textContent = getMovementLabel(snapshot, activeMovement);
@@ -337,15 +519,24 @@ function setStatus(status) {
   elements.templateList.querySelectorAll("button").forEach((button) => {
     button.disabled = status === "running" || status === "paused";
   });
+  elements.plannerForm.querySelectorAll("select, button").forEach((field) => {
+    field.disabled = status === "running" || status === "paused";
+  });
+  elements.plannerGrid.querySelectorAll("button").forEach((button) => {
+    button.disabled = status === "running" || status === "paused";
+  });
+  elements.equipmentForm.querySelectorAll("input, select, button").forEach((field) => {
+    field.disabled = status === "running" || status === "paused";
+  });
+  elements.equipmentList.querySelectorAll("button").forEach((button) => {
+    button.disabled = status === "running" || status === "paused";
+  });
   updateSoundButton();
 }
 
 async function startTimer() {
   validateIntervalInputs();
-  if (!elements.form.reportValidity()) {
-    elements.setupDetails.open = true;
-    return;
-  }
+  if (!isTimerConfigValid()) return;
 
   if (state.status === "paused") {
     state.pausedMs += Date.now() - state.pausedAt;
@@ -356,10 +547,9 @@ async function startTimer() {
     state.isCompleting = false;
   }
 
-  await unlockAudio();
+  unlockAudio().catch(() => null);
   clearInterval(state.intervalId);
   state.intervalId = setInterval(updateDisplay, 250);
-  elements.setupDetails.open = false;
   setStatus("running");
   updateDisplay();
 }
@@ -482,33 +672,61 @@ async function playTone({ frequency, duration, volume, type }) {
 
 async function completeWorkout() {
   validateIntervalInputs();
-  if (!state.startedAt || state.isCompleting || !elements.form.reportValidity()) return;
+  if (!state.startedAt || state.isCompleting || !isTimerConfigValid()) return;
 
   clearInterval(state.intervalId);
   state.isCompleting = true;
   const { name, rounds, tags, workSeconds, restSeconds } = getFormValues();
-  const durationSeconds = Math.max(1, Math.round(getElapsedMs() / 1000));
+  const equipment = getSelectedEquipment().map(({ id, name: equipmentName, category, detail }) => ({
+    id,
+    name: equipmentName,
+    category,
+    detail,
+  }));
+  const plannedDurationSeconds = getPlannedDurationSeconds(rounds, restSeconds);
+  const durationSeconds = Math.max(1, Math.min(plannedDurationSeconds, Math.round(getElapsedMs() / 1000)));
   const completedAt = new Date().toISOString();
 
-  await addWorkout({
+  const completedWorkout = {
     name,
     rounds,
     tags,
     completedAt,
     durationSeconds,
-    plannedDurationSeconds: getPlannedDurationSeconds(rounds),
+    plannedDurationSeconds,
     workSecondsPerRound: workSeconds,
     restSecondsPerRound: restSeconds,
+    equipment,
     templateId: state.selectedTemplate?.id ?? null,
     templateName: state.selectedTemplate?.name ?? null,
+    plannedSessionId: state.activePlanSessionId,
     plannedMovements: state.activePlan,
     type: "EMOM",
-  });
+  };
+  const completedWorkoutId = await addWorkout(completedWorkout);
+
+  if (state.activePlanSessionId) {
+    const sessions = await getPlanSessions();
+    const session = sessions.find((candidate) => candidate.id === state.activePlanSessionId);
+
+    if (session) {
+      await putPlanSession({
+        ...session,
+        status: "completed",
+        completedWorkoutId,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
+    state.activePlanSessionId = null;
+  }
 
   setStatus("complete");
+  showCelebration();
   state.isCompleting = false;
   updateDisplay();
   await renderHistory();
+  await renderPlanner();
 }
 
 function getActiveMovement(snapshot) {
@@ -517,13 +735,15 @@ function getActiveMovement(snapshot) {
 }
 
 function getMovementKicker(snapshot, movement) {
+  if (snapshot.phaseName === "Complete") return "Workout complete";
   if (!movement) return "Current movement";
   if (snapshot.isRest) return "Rest, then next round";
   return `Cycle ${movement.cycle} · Move ${movement.movementIndex}`;
 }
 
 function getMovementLabel(snapshot, movement) {
-  if (!movement) return "Choose a workout or enter your own.";
+  if (snapshot.phaseName === "Complete") return "Workout complete.";
+  if (!movement) return "Choose a workout or build one.";
 
   const label = movement.target ? `${movement.move} · ${movement.target}` : movement.move;
 
@@ -533,6 +753,19 @@ function getMovementLabel(snapshot, movement) {
   if (!nextMovement) return "Final rest minute";
 
   return nextMovement.target ? `${nextMovement.move} · ${nextMovement.target}` : nextMovement.move;
+}
+
+function showCelebration() {
+  if (!elements.celebration) return;
+
+  clearTimeout(state.celebrationTimeoutId);
+  elements.celebration.classList.add("is-active");
+  elements.celebration.setAttribute("aria-hidden", "false");
+
+  state.celebrationTimeoutId = window.setTimeout(() => {
+    elements.celebration.classList.remove("is-active");
+    elements.celebration.setAttribute("aria-hidden", "true");
+  }, 2200);
 }
 
 function updateMovementArt(movement) {
@@ -579,7 +812,7 @@ function renderTemplates() {
   elements.templateList.innerHTML = getSortedTemplates()
     .map((template) => {
       const rounds = expandTemplate(template).length;
-      const minutes = rounds * (ROUND_SECONDS / 60);
+      const duration = formatClock(getPlannedDurationSeconds(rounds, DEFAULT_REST_SECONDS));
       const activeClass = state.selectedTemplate?.id === template.id ? " is-active" : "";
       const isFavorite = state.favoriteTemplateIds.has(template.id);
       const favoriteClass = isFavorite ? " is-favorite" : "";
@@ -612,7 +845,7 @@ function renderTemplates() {
             <span class="template-copy">
               <strong>${escapeHtml(template.name)}</strong>
               ${template.description ? `<span>${escapeHtml(template.description)}</span>` : ""}
-              <small>${template.movements.length} moves · ${template.cycles} cycles · ${minutes} min</small>
+              <small>${template.movements.length} moves · ${template.cycles} cycles · ${duration}</small>
             </span>
           </button>
           ${actions}
@@ -653,18 +886,24 @@ function selectTemplate(templateId) {
 
   const plan = expandTemplate(template);
   state.selectedTemplate = template;
+  state.activePlanSessionId = null;
   state.activePlan = plan;
   elements.workoutName.value = template.name;
   elements.rounds.value = plan.length;
   elements.workSeconds.value = DEFAULT_WORK_SECONDS;
   elements.restSeconds.value = DEFAULT_REST_SECONDS;
   elements.tags.value = template.tags.join(", ");
-  elements.setupDetails.open = false;
 
   renderTemplates();
   renderSchedule();
   switchTab("moves");
   updateDisplay();
+}
+
+function selectPlannedSession(session) {
+  selectTemplate(session.templateId);
+  state.activePlanSessionId = session.id;
+  switchTab("moves");
 }
 
 function startNewTemplate() {
@@ -705,14 +944,17 @@ function deleteTemplate(templateId) {
   if (state.selectedTemplate?.id === templateId) {
     state.selectedTemplate = null;
     state.activePlan = [];
-    elements.workoutName.value = "";
+    elements.workoutName.value = "Manual EMOM";
     elements.rounds.value = "10";
+    elements.workSeconds.value = DEFAULT_WORK_SECONDS;
+    elements.restSeconds.value = DEFAULT_REST_SECONDS;
     elements.tags.value = "";
   }
 
   loadTemplates();
   renderTemplates();
   renderSchedule();
+  renderPlanner();
   updateDisplay();
 }
 
@@ -774,11 +1016,13 @@ function saveBuilderTemplate() {
   loadTemplates();
   selectTemplate(template.id);
   state.builderEditingId = template.id;
+  renderPlanner();
 }
 
 function renderBuilder() {
   const cycles = normalizeRounds(elements.builderCycles.value);
-  const minutes = state.builderMoves.length * cycles * (ROUND_SECONDS / 60);
+  const rounds = state.builderMoves.length * cycles;
+  const duration = rounds ? formatClock(getPlannedDurationSeconds(rounds, DEFAULT_REST_SECONDS)) : "00:00";
 
   elements.builderMoveList.innerHTML = state.builderMoves.length
     ? state.builderMoves
@@ -795,7 +1039,285 @@ function renderBuilder() {
         )
         .join("")
     : '<li class="builder-empty">No moves added yet.</li>';
-  elements.builderSummary.textContent = `${state.builderMoves.length} moves · ${cycles} cycles · ${minutes} min`;
+  elements.builderSummary.textContent = `${state.builderMoves.length} moves · ${cycles} cycles · ${duration}`;
+}
+
+function renderEquipment() {
+  const selectedEquipment = getSelectedEquipment();
+
+  elements.equipmentCount.textContent = `${selectedEquipment.length} selected`;
+  elements.equipmentList.innerHTML = state.equipment
+    .map((equipment) => {
+      const selectedClass = equipment.selected ? " is-selected" : "";
+      const detail = [equipment.category, equipment.detail].filter(Boolean).join(" · ");
+      const deleteButton = equipment.isPreset
+        ? ""
+        : `<button type="button" data-delete-equipment-id="${equipment.id}">Delete</button>`;
+
+      return `
+        <article class="equipment-item${selectedClass}">
+          <button
+            class="equipment-toggle${selectedClass}"
+            type="button"
+            data-equipment-id="${equipment.id}"
+            aria-pressed="${String(equipment.selected)}"
+            aria-label="${equipment.selected ? "Deselect" : "Select"} ${escapeHtml(equipment.name)}"
+          >${equipment.selected ? "✓" : "○"}</button>
+          ${renderEquipmentIcon(equipment)}
+          <span class="equipment-copy">
+            <strong>${escapeHtml(equipment.name)}</strong>
+            <small>${escapeHtml(detail || "Equipment")}</small>
+          </span>
+          <span class="equipment-actions">${deleteButton}</span>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function renderEquipmentIcon(equipment) {
+  const normalizedName = normalizeMoveName(equipment.name);
+  const icon = normalizedName.includes("kettlebell")
+    ? "kettlebell"
+    : normalizedName.includes("dumbbell")
+      ? "dumbbell"
+      : normalizedName.includes("barbell")
+        ? "barbell"
+        : normalizedName.includes("bodyweight")
+          ? "bodyweight"
+          : normalizedName.includes("band")
+            ? "band"
+            : "mixed";
+
+  return `<span class="equipment-icon equipment-icon-${icon}" aria-hidden="true"></span>`;
+}
+
+async function renderPlanner() {
+  const weekDays = getWeekDays();
+  const sessions = await getPlanSessions();
+  const workouts = await getWorkouts();
+  const sessionsByDate = new Map(sessions.map((session) => [session.date, session]));
+  const weekEnd = addDays(state.currentWeekStart, 6);
+
+  elements.planTitle.textContent = `${state.currentWeekStart.toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+  })} - ${weekEnd.toLocaleDateString([], { month: "short", day: "numeric" })}`;
+
+  renderPlannerOptions(weekDays);
+  elements.plannerGrid.innerHTML = weekDays
+    .map((date) => renderPlanDay(date, sessionsByDate.get(getDateKey(date))))
+    .join("");
+  renderProgressHeatmap(sessions, workouts);
+}
+
+function renderPlannerOptions(weekDays) {
+  const selectedDate = elements.plannerDate.value;
+
+  elements.plannerDate.innerHTML = weekDays
+    .map((date) => {
+      const dateKey = getDateKey(date);
+      const label = date.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+
+      return `<option value="${dateKey}">${escapeHtml(label)}</option>`;
+    })
+    .join("");
+
+  if (selectedDate && weekDays.some((date) => getDateKey(date) === selectedDate)) {
+    elements.plannerDate.value = selectedDate;
+  }
+
+  elements.plannerTemplate.innerHTML = getSortedTemplates()
+    .map((template) => `<option value="${template.id}">${escapeHtml(template.name)}</option>`)
+    .join("");
+}
+
+function renderPlanDay(date, session) {
+  const dateKey = getDateKey(date);
+  const status = getEffectivePlanStatus(session);
+  const statusLabel = status === "empty" ? "Open" : status;
+  const isToday = dateKey === getDateKey(new Date());
+  const content = session
+    ? `
+        <strong>${escapeHtml(session.workoutName)}</strong>
+        <small>${escapeHtml(session.focus)} · ${formatClock(session.plannedDurationSeconds)}</small>
+        <div class="plan-actions">
+          <button type="button" data-start-plan-id="${session.id}" ${status === "completed" || state.status === "running" || state.status === "paused" ? "disabled" : ""}>Start</button>
+          <button type="button" data-skip-plan-id="${session.id}" ${status !== "planned" ? "disabled" : ""}>Skip</button>
+          <button type="button" data-clear-plan-id="${session.id}">Clear</button>
+        </div>
+      `
+    : `
+        <strong>No workout planned</strong>
+        <small>Assign one below.</small>
+        <div class="plan-actions">
+          <button type="button" data-plan-date="${dateKey}">Add</button>
+        </div>
+      `;
+
+  return `
+    <article class="plan-day is-${status}${isToday ? " is-today" : ""}">
+      <div class="plan-day-header">
+        <span>${escapeHtml(date.toLocaleDateString([], { weekday: "short" }))}</span>
+        <time datetime="${dateKey}">${escapeHtml(date.toLocaleDateString([], { month: "short", day: "numeric" }))}</time>
+      </div>
+      <span class="plan-status">${escapeHtml(statusLabel)}</span>
+      <div class="plan-day-body">${content}</div>
+    </article>
+  `;
+}
+
+async function savePlanFromForm() {
+  const template = state.templates.find((candidate) => candidate.id === elements.plannerTemplate.value);
+  if (!template) return;
+
+  const sessions = await getPlanSessions();
+  const existingSession = sessions.find((session) => session.date === elements.plannerDate.value);
+  const plan = expandTemplate(template);
+  const now = new Date().toISOString();
+
+  await putPlanSession({
+    id: existingSession?.id ?? `plan-${elements.plannerDate.value}-${Date.now()}`,
+    date: elements.plannerDate.value,
+    templateId: template.id,
+    workoutName: template.name,
+    focus: elements.plannerFocus.value,
+    equipment: getSelectedEquipment().map(({ id, name, category }) => ({ id, name, category })),
+    plannedRounds: plan.length,
+    plannedDurationSeconds: getPlannedDurationSeconds(plan.length, DEFAULT_REST_SECONDS),
+    status: "planned",
+    completedWorkoutId: existingSession?.completedWorkoutId ?? null,
+    createdAt: existingSession?.createdAt ?? now,
+    updatedAt: now,
+  });
+
+  await renderPlanner();
+}
+
+async function startPlanSession(sessionId) {
+  if (state.status === "running" || state.status === "paused") return;
+
+  const sessions = await getPlanSessions();
+  const session = sessions.find((candidate) => candidate.id === sessionId);
+  if (!session) return;
+
+  selectPlannedSession(session);
+  await startTimer();
+}
+
+async function skipPlanSession(sessionId) {
+  const sessions = await getPlanSessions();
+  const session = sessions.find((candidate) => candidate.id === sessionId);
+  if (!session) return;
+
+  await putPlanSession({
+    ...session,
+    status: "skipped",
+    updatedAt: new Date().toISOString(),
+  });
+  await renderPlanner();
+}
+
+async function clearPlanSession(sessionId) {
+  await deletePlanSession(sessionId);
+  await renderPlanner();
+}
+
+function renderProgressHeatmap(sessions, workouts) {
+  const endWeekStart = getStartOfWeek(new Date());
+  const firstWeekStart = addDays(endWeekStart, -77);
+  const todayKey = getDateKey(new Date());
+  const sessionsByDate = new Map(sessions.map((session) => [session.date, session]));
+  const completedByDate = new Map();
+
+  workouts.forEach((workout) => {
+    const dateKey = getDateKey(new Date(workout.completedAt));
+    completedByDate.set(dateKey, (completedByDate.get(dateKey) ?? 0) + 1);
+  });
+
+  const cells = [];
+  let completedCount = 0;
+
+  for (let week = 0; week < 12; week += 1) {
+    for (let day = 0; day < 7; day += 1) {
+      const date = addDays(firstWeekStart, week * 7 + day);
+      const dateKey = getDateKey(date);
+      const session = sessionsByDate.get(dateKey);
+      const effectiveStatus = getEffectivePlanStatus(session, todayKey);
+      const completedWorkouts = completedByDate.get(dateKey) ?? 0;
+      const heatClass = getHeatClass({ effectiveStatus, completedWorkouts });
+
+      if (completedWorkouts) completedCount += completedWorkouts;
+
+      cells.push(`
+        <button
+          class="heat-cell ${heatClass}"
+          type="button"
+          title="${escapeHtml(`${date.toLocaleDateString([], { month: "short", day: "numeric" })}: ${getHeatLabel({ effectiveStatus, completedWorkouts })}`)}"
+          aria-label="${escapeHtml(`${date.toLocaleDateString()}: ${getHeatLabel({ effectiveStatus, completedWorkouts })}`)}"
+        ></button>
+      `);
+    }
+  }
+
+  elements.progressSummary.textContent = `${completedCount} completed`;
+  elements.progressHeatmap.innerHTML = cells.join("");
+}
+
+function getHeatClass({ effectiveStatus, completedWorkouts }) {
+  if (effectiveStatus === "completed") return "heat-planned-completed";
+  if (completedWorkouts > 0) return "heat-completed";
+  if (effectiveStatus === "planned") return "heat-planned";
+  if (effectiveStatus === "skipped" || effectiveStatus === "missed") return "heat-missed";
+  return "heat-empty";
+}
+
+function getHeatLabel({ effectiveStatus, completedWorkouts }) {
+  if (effectiveStatus === "completed") return "planned workout completed";
+  if (completedWorkouts > 0) return `${completedWorkouts} workout${completedWorkouts === 1 ? "" : "s"} completed`;
+  if (effectiveStatus === "planned") return "workout planned";
+  if (effectiveStatus === "skipped") return "skipped";
+  if (effectiveStatus === "missed") return "missed";
+  return "no workout";
+}
+
+function addEquipment() {
+  const name = elements.equipmentName.value.trim();
+
+  if (!name) {
+    elements.equipmentName.focus();
+    return;
+  }
+
+  state.equipment.push(
+    sanitizeEquipment({
+      id: `custom-gear-${Date.now()}`,
+      name,
+      category: elements.equipmentCategory.value,
+      detail: elements.equipmentDetail.value,
+      selected: true,
+      isPreset: false,
+    }),
+  );
+  elements.equipmentName.value = "";
+  elements.equipmentDetail.value = "";
+  elements.equipmentName.focus();
+  saveEquipment();
+  renderEquipment();
+}
+
+function toggleEquipment(equipmentId) {
+  state.equipment = state.equipment.map((equipment) =>
+    equipment.id === equipmentId ? { ...equipment, selected: !equipment.selected } : equipment,
+  );
+  saveEquipment();
+  renderEquipment();
+}
+
+function deleteEquipment(equipmentId) {
+  state.equipment = state.equipment.filter((equipment) => equipment.id !== equipmentId || equipment.isPreset);
+  saveEquipment();
+  renderEquipment();
 }
 
 function renderSchedule() {
@@ -806,11 +1328,11 @@ function renderSchedule() {
     return;
   }
 
-  const totalMinutes = state.activePlan.length * (ROUND_SECONDS / 60);
   const { workSeconds, restSeconds } = getFormValues();
+  const duration = formatClock(getPlannedDurationSeconds(state.activePlan.length, restSeconds));
 
   elements.scheduleTitle.textContent = state.selectedTemplate.name;
-  elements.scheduleSummary.textContent = `${state.selectedTemplate.movements.length} distinct moves · ${state.selectedTemplate.cycles} cycles · ${totalMinutes} min · ${workSeconds}s/${restSeconds}s`;
+  elements.scheduleSummary.textContent = `${state.selectedTemplate.movements.length} distinct moves · ${state.selectedTemplate.cycles} cycles · ${duration} · ${workSeconds}s/${restSeconds}s`;
   elements.scheduleList.innerHTML = state.selectedTemplate.movements
     .map(
       (movement, index) => `
@@ -867,6 +1389,9 @@ function renderWorkout(workout) {
   const tags = workout.tags?.length
     ? `<div class="tag-row">${workout.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</div>`
     : "";
+  const equipment = workout.equipment?.length
+    ? `<div class="equipment-summary-row">${workout.equipment.map((item) => `<span class="equipment-chip">${escapeHtml(item.name)}</span>`).join("")}</div>`
+    : "";
 
   return `
     <article class="history-item">
@@ -879,14 +1404,21 @@ function renderWorkout(workout) {
       </div>
       <div class="history-meta">
         <span>${workout.rounds} rounds</span>
-        <span>${formatClock(getPlannedDurationSeconds(workout.rounds))} planned</span>
+        <span>${formatClock(getPlannedDurationSeconds(workout.rounds, workout.restSecondsPerRound ?? DEFAULT_REST_SECONDS))} planned</span>
         <span>${workout.workSecondsPerRound ?? DEFAULT_WORK_SECONDS}s/${workout.restSecondsPerRound ?? DEFAULT_REST_SECONDS}s</span>
         <span>${formatClock(workout.durationSeconds)}</span>
         <span>${completedDate.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>
       </div>
       ${tags}
+      ${equipment}
     </article>
   `;
+}
+
+function isTimerConfigValid() {
+  const { workSeconds, restSeconds } = getFormValues();
+
+  return workSeconds + restSeconds === ROUND_SECONDS;
 }
 
 function validateIntervalInputs() {
@@ -932,7 +1464,7 @@ async function exportWorkouts() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `fitness-friend-emom-${new Date().toISOString().slice(0, 10)}.json`;
+  link.download = `bellforge-emom-${new Date().toISOString().slice(0, 10)}.json`;
   link.click();
   URL.revokeObjectURL(url);
 }
@@ -952,6 +1484,45 @@ elements.restSeconds.addEventListener("input", () => {
   updateDisplay();
   renderSchedule();
 });
+elements.savePlanButton.addEventListener("click", savePlanFromForm);
+elements.previousWeekButton.addEventListener("click", async () => {
+  state.currentWeekStart = addDays(state.currentWeekStart, -7);
+  await renderPlanner();
+});
+elements.todayWeekButton.addEventListener("click", async () => {
+  state.currentWeekStart = getStartOfWeek(new Date());
+  await renderPlanner();
+});
+elements.nextWeekButton.addEventListener("click", async () => {
+  state.currentWeekStart = addDays(state.currentWeekStart, 7);
+  await renderPlanner();
+});
+elements.plannerGrid.addEventListener("click", async (event) => {
+  const addButton = event.target.closest("[data-plan-date]");
+  const startButton = event.target.closest("[data-start-plan-id]");
+  const skipButton = event.target.closest("[data-skip-plan-id]");
+  const clearButton = event.target.closest("[data-clear-plan-id]");
+
+  if (addButton) {
+    elements.plannerDate.value = addButton.dataset.planDate;
+    elements.plannerTemplate.focus();
+    return;
+  }
+
+  if (startButton && !startButton.disabled) {
+    await startPlanSession(startButton.dataset.startPlanId);
+    return;
+  }
+
+  if (skipButton && !skipButton.disabled) {
+    await skipPlanSession(skipButton.dataset.skipPlanId);
+    return;
+  }
+
+  if (clearButton && !clearButton.disabled) {
+    await clearPlanSession(clearButton.dataset.clearPlanId);
+  }
+});
 elements.newTemplateButton.addEventListener("click", startNewTemplate);
 elements.clearBuilderButton.addEventListener("click", startNewTemplate);
 elements.addMoveButton.addEventListener("click", addBuilderMove);
@@ -969,6 +1540,30 @@ elements.builderMoveList.addEventListener("click", (event) => {
   if (!button) return;
 
   removeBuilderMove(Number(button.dataset.removeBuilderMove));
+});
+elements.addEquipmentButton.addEventListener("click", addEquipment);
+elements.equipmentForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  addEquipment();
+});
+elements.equipmentDetail.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    addEquipment();
+  }
+});
+elements.equipmentList.addEventListener("click", (event) => {
+  const toggleButton = event.target.closest("[data-equipment-id]");
+  const deleteButton = event.target.closest("[data-delete-equipment-id]");
+
+  if (deleteButton && !deleteButton.disabled) {
+    deleteEquipment(deleteButton.dataset.deleteEquipmentId);
+    return;
+  }
+
+  if (!toggleButton || toggleButton.disabled) return;
+
+  toggleEquipment(toggleButton.dataset.equipmentId);
 });
 elements.tabButtons.forEach((button) => {
   button.addEventListener("click", () => switchTab(button.dataset.tab));
@@ -1003,6 +1598,8 @@ loadTemplates();
 renderTemplates();
 renderSchedule();
 renderBuilder();
+renderEquipment();
+renderPlanner();
 setStatus("ready");
 updateSoundButton();
 updateDisplay();
