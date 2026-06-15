@@ -46,7 +46,9 @@ Hypertrophy-focused kettlebell programming notes and source links are saved in
 python3 -m http.server 4173
 ```
 
-Open `http://localhost:4173`.
+Open `http://localhost:4173` for the BellForge landing page.
+
+Open `http://localhost:4173/timer.html` for the EMOM timer app.
 
 ## Deploy it
 

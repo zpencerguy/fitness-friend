@@ -8,295 +8,183 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./styles.css?v=20260615">
   </head>
   <body>
-    <main class="app-shell">
-      <section class="timer-panel" aria-labelledby="app-title">
-        <div class="brand-row">
-          <div class="brand-lockup">
-            <svg class="brand-mark" width="32" height="32" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-              <path d="M14 4L6 8v12l8 4 8-4V8L14 4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-              <path d="M14 4v24M6 8l8 4 8-4" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-            </svg>
-            <div>
-              <p class="eyebrow">Equipment-aware training</p>
-              <h1 id="app-title">BellForge</h1>
-            </div>
-          </div>
-          <div class="status-pill" id="timer-state">Ready</div>
-        </div>
+    <nav class="landing-nav" aria-label="BellForge">
+      <a class="landing-brand" href="#home" aria-label="BellForge home">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <path d="M14 4L6 8v12l8 4 8-4V8L14 4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M14 4v24M6 8l8 4 8-4" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        </svg>
+        <span>BellForge</span>
+      </a>
+      <div class="landing-nav-actions">
+        <a href="#equipment">Gear</a>
+        <a href="#how-it-works">How it works</a>
+        <a class="landing-nav-cta" href="./timer.html">EMOM Timer</a>
+      </div>
+    </nav>
 
-        <div class="timer-face" aria-live="polite">
-          <div class="phase-badge" id="phase-label">Work phase</div>
-          <p class="timer-label" id="round-label">Round 1 of 10</p>
-          <div class="time-left" id="time-left">01:00</div>
-          <div class="progress-track">
-            <div class="progress-fill" id="progress-fill"></div>
-          </div>
-          <p class="elapsed" id="elapsed-time">Elapsed 00:00</p>
-          <div class="movement-card" id="movement-card">
-            <div class="movement-visual">
-              <span class="move-art move-art-placeholder" id="movement-art" aria-hidden="true"></span>
-            </div>
-            <div>
-              <p id="movement-kicker">Current movement</p>
-              <strong id="movement-label">Choose a workout or build one.</strong>
-            </div>
-          </div>
+    <header class="landing-hero" id="home">
+      <section class="landing-hero-copy">
+        <p class="landing-eyebrow">Equipment-aware training</p>
+        <h1>Your gear.<br>Your workout.<br>Every time.</h1>
+        <p>
+          BellForge turns the kettlebells, dumbbells, barbells, bands, and floor space you already have into structured workouts with a built-in EMOM timer, weekly planning, and progress tracking.
+        </p>
+        <div class="landing-actions">
+          <a class="landing-primary-link" href="./timer.html">Launch timer</a>
+          <a class="landing-secondary-link" href="#how-it-works">See how it works</a>
         </div>
-
-        <div class="actions">
-          <button class="primary" id="start-button" type="button">Start</button>
-          <button id="pause-button" type="button" disabled>Pause</button>
-          <button id="reset-button" type="button">Reset</button>
-          <button id="sound-button" type="button" aria-pressed="true">Sound On</button>
-          <button class="complete" id="complete-button" type="button" disabled>Complete</button>
+        <div class="landing-stats" aria-label="BellForge highlights">
+          <span><strong>6</strong> equipment types</span>
+          <span><strong>EMOM</strong> timer built in</span>
+          <span><strong>Plan</strong> your week</span>
         </div>
-
-        <form id="workout-form" class="timer-config-form" aria-hidden="true">
-          <input id="workout-name" name="workoutName" type="hidden" value="Manual EMOM">
-          <input id="rounds" name="rounds" type="hidden" value="10">
-          <input id="work-seconds" name="workSeconds" type="hidden" value="30">
-          <input id="rest-seconds" name="restSeconds" type="hidden" value="30">
-          <input id="tags" name="tags" type="hidden">
-        </form>
       </section>
 
-      <div class="side-rail">
-        <section class="workspace-panel" aria-label="Workout workspace">
-          <div class="workspace-tabs" role="tablist" aria-label="Workout workspace">
-            <button class="tab-button" id="plan-tab-button" type="button" role="tab" aria-selected="false" aria-controls="plan-tab" data-tab="plan">Plan</button>
-            <button class="tab-button is-active" id="templates-tab-button" type="button" role="tab" aria-selected="true" aria-controls="templates-tab" data-tab="templates">Workouts</button>
-            <button class="tab-button" id="builder-tab-button" type="button" role="tab" aria-selected="false" aria-controls="builder-tab" data-tab="builder">Builder</button>
-            <button class="tab-button" id="equipment-tab-button" type="button" role="tab" aria-selected="false" aria-controls="equipment-tab" data-tab="equipment">Equipment</button>
-            <button class="tab-button" id="moves-tab-button" type="button" role="tab" aria-selected="false" aria-controls="moves-tab" data-tab="moves">Moves</button>
-            <button class="tab-button" id="history-tab-button" type="button" role="tab" aria-selected="false" aria-controls="history-tab" data-tab="history">History</button>
+      <section class="landing-hero-visual" aria-label="Supported equipment">
+        <div class="gear-cloud">
+          <div class="gear-item gear-kb">
+            <svg viewBox="0 0 60 80" fill="none" aria-hidden="true">
+              <ellipse cx="30" cy="52" rx="22" ry="18" stroke="currentColor" stroke-width="2"/>
+              <rect x="22" y="18" width="16" height="22" rx="3" stroke="currentColor" stroke-width="2"/>
+            </svg>
+            <span>Kettlebells</span>
           </div>
+          <div class="gear-item gear-db">
+            <svg viewBox="0 0 42 54" fill="none" aria-hidden="true">
+              <rect x="7" y="24" width="28" height="8" rx="2" stroke="currentColor" stroke-width="2"/>
+              <rect x="4" y="14" width="7" height="20" rx="2" stroke="currentColor" stroke-width="2"/>
+              <rect x="31" y="14" width="7" height="20" rx="2" stroke="currentColor" stroke-width="2"/>
+            </svg>
+            <span>Dumbbells</span>
+          </div>
+          <div class="gear-item gear-bar">
+            <svg viewBox="0 0 88 34" fill="none" aria-hidden="true">
+              <rect x="6" y="11" width="14" height="12" rx="2" stroke="currentColor" stroke-width="2"/>
+              <rect x="68" y="11" width="14" height="12" rx="2" stroke="currentColor" stroke-width="2"/>
+              <rect x="20" y="15" width="48" height="4" rx="2" stroke="currentColor" stroke-width="2"/>
+            </svg>
+            <span>Barbells</span>
+          </div>
+          <div class="gear-item gear-bw">
+            <svg viewBox="0 0 50 70" fill="none" aria-hidden="true">
+              <circle cx="25" cy="20" r="10" stroke="currentColor" stroke-width="2"/>
+              <path d="M25 30 Q22 40 20 55 M25 30 Q28 40 30 55 M25 30 L25 55" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <span>Bodyweight</span>
+          </div>
+          <div class="gear-item gear-band">
+            <svg viewBox="0 0 70 50" fill="none" aria-hidden="true">
+              <ellipse cx="35" cy="25" rx="30" ry="18" stroke="currentColor" stroke-width="2.5"/>
+              <ellipse cx="35" cy="25" rx="20" ry="12" stroke="currentColor" stroke-width="1.5" opacity="0.5"/>
+            </svg>
+            <span>Bands</span>
+          </div>
+        </div>
+        <div class="landing-badge"><span></span> Equipment selected</div>
+      </section>
+    </header>
 
-          <section class="tab-panel" id="plan-tab" role="tabpanel" aria-labelledby="plan-tab-button" data-tab-panel="plan" hidden>
-            <div class="panel-header">
-              <div>
-                <p class="eyebrow">Weekly plan</p>
-                <h2 id="plan-title">This Week</h2>
-              </div>
-              <div class="week-actions">
-                <button class="compact-button" id="previous-week-button" type="button" aria-label="Previous week">Prev</button>
-                <button class="compact-button" id="today-week-button" type="button">Today</button>
-                <button class="compact-button" id="next-week-button" type="button" aria-label="Next week">Next</button>
-              </div>
-            </div>
-
-            <div class="planner-grid" id="planner-grid"></div>
-
-            <form class="planner-form" id="planner-form">
-              <label>
-                Day
-                <select id="planner-date"></select>
-              </label>
-              <label>
-                Workout
-                <select id="planner-template"></select>
-              </label>
-              <label>
-                Focus
-                <select id="planner-focus">
-                  <option>Full body</option>
-                  <option>Upper body</option>
-                  <option>Legs</option>
-                  <option>Core</option>
-                  <option>Conditioning</option>
-                  <option>Mobility</option>
-                </select>
-              </label>
-              <button class="primary" id="save-plan-button" type="button">Save Plan</button>
-            </form>
-
-            <div class="progress-panel">
-              <div class="progress-header">
-                <div>
-                  <p class="eyebrow">Progress</p>
-                  <strong>Last 12 weeks</strong>
-                </div>
-                <span id="progress-summary">0 completed</span>
-              </div>
-              <div class="heatmap" id="progress-heatmap" aria-label="Workout progress heatmap"></div>
-              <div class="heatmap-legend" aria-hidden="true">
-                <span>Less</span>
-                <i class="heat-empty"></i>
-                <i class="heat-planned"></i>
-                <i class="heat-completed"></i>
-                <i class="heat-planned-completed"></i>
-                <span>More</span>
-              </div>
-            </div>
-          </section>
-
-          <section class="tab-panel is-active" id="templates-tab" role="tabpanel" aria-labelledby="templates-tab-button" data-tab-panel="templates">
-            <div class="panel-header">
-              <div>
-                <p class="eyebrow">Plans</p>
-                <h2 id="templates-title">Workouts</h2>
-              </div>
-              <button class="compact-button" id="new-template-button" type="button">New</button>
-            </div>
-
-            <div class="template-list" id="template-list"></div>
-          </section>
-
-          <section class="tab-panel" id="builder-tab" role="tabpanel" aria-labelledby="builder-tab-button" data-tab-panel="builder" hidden>
-            <div class="panel-header">
-              <div>
-                <p class="eyebrow">Create</p>
-                <h2 id="builder-title">Workout Builder</h2>
-              </div>
-              <button class="compact-button" id="clear-builder-button" type="button">Clear</button>
-            </div>
-
-            <form class="builder-form" id="builder-form">
-              <label>
-                Workout name
-                <input id="builder-name" type="text" placeholder="Lower body EMOM" required>
-              </label>
-
-              <div class="builder-grid">
-                <label>
-                  Cycles
-                  <input id="builder-cycles" type="number" min="1" max="20" value="3" required>
-                </label>
-                <label>
-                  Tags
-                  <input id="builder-tags" type="text" placeholder="legs, kettlebell">
-                </label>
-              </div>
-
-              <div class="move-entry">
-                <label>
-                  Move
-                  <input id="builder-move-name" type="text" placeholder="Goblet squat">
-                </label>
-                <label>
-                  Target
-                  <input id="builder-move-target" type="text" placeholder="30 sec">
-                </label>
-                <label>
-                  Pattern
-                  <select id="builder-move-pattern">
-                    <option>Hinge</option>
-                    <option>Squat</option>
-                    <option>Pull</option>
-                    <option>Push</option>
-                    <option>Lunge</option>
-                    <option>Core</option>
-                    <option>Carry</option>
-                    <option>Mobility</option>
-                    <option>Power</option>
-                    <option>Conditioning</option>
-                  </select>
-                </label>
-                <button id="add-move-button" type="button">Add Move</button>
-              </div>
-            </form>
-
-            <ol class="builder-move-list" id="builder-move-list"></ol>
-
-            <div class="builder-actions">
-              <button class="primary" id="save-template-button" type="button">Save Workout</button>
-              <span id="builder-summary">0 moves · 3 cycles · 0 min</span>
-            </div>
-          </section>
-
-          <section class="tab-panel" id="equipment-tab" role="tabpanel" aria-labelledby="equipment-tab-button" data-tab-panel="equipment" hidden>
-            <div class="panel-header">
-              <div>
-                <p class="eyebrow">Gear</p>
-                <h2 id="equipment-title">Equipment</h2>
-              </div>
-              <span class="panel-count" id="equipment-count">0 selected</span>
-            </div>
-
-            <form class="equipment-form" id="equipment-form">
-              <label>
-                Equipment name
-                <input id="equipment-name" type="text" placeholder="Adjustable bench">
-              </label>
-
-              <div class="equipment-entry">
-                <label>
-                  Type
-                  <select id="equipment-category">
-                    <option>Weights</option>
-                    <option>Bodyweight</option>
-                    <option>Accessory</option>
-                    <option>Cardio</option>
-                    <option>Mobility</option>
-                  </select>
-                </label>
-                <label>
-                  Details
-                  <input id="equipment-detail" type="text" placeholder="Pair, 25 lb, rack, etc.">
-                </label>
-                <button id="add-equipment-button" type="button">Add Gear</button>
-              </div>
-            </form>
-
-            <div class="equipment-list" id="equipment-list"></div>
-          </section>
-
-          <section class="tab-panel" id="moves-tab" role="tabpanel" aria-labelledby="moves-tab-button" data-tab-panel="moves" hidden>
-            <div class="schedule-header">
-              <div>
-                <p class="eyebrow">Selected workout</p>
-                <strong id="schedule-title">No workout selected</strong>
-              </div>
-              <span id="schedule-summary">Manual EMOM</span>
-            </div>
-            <ol class="schedule-list" id="schedule-list"></ol>
-          </section>
-
-          <section class="tab-panel" id="history-tab" role="tabpanel" aria-labelledby="history-tab-button" data-tab-panel="history" hidden>
-            <div class="history-header">
-              <div>
-                <p class="eyebrow">Workout data</p>
-                <h2 id="history-title">Completed EMOMs</h2>
-              </div>
-              <button id="export-button" type="button">Export JSON</button>
-            </div>
-
-            <div class="stats-grid">
-              <div>
-                <span id="total-workouts">0</span>
-                <p>Workouts</p>
-              </div>
-              <div>
-                <span id="total-minutes">0</span>
-                <p>Minutes</p>
-              </div>
-              <div>
-                <span id="total-rounds">0</span>
-                <p>Rounds</p>
-              </div>
-            </div>
-
-            <div class="history-list" id="history-list">
-              <p class="empty-state">No workouts logged yet.</p>
-            </div>
-          </section>
-        </section>
+    <section class="landing-equipment" id="equipment">
+      <div class="landing-section-header">
+        <p class="landing-eyebrow">Built for your setup</p>
+        <h2>No assumptions.<br>Just your gear, programmed.</h2>
       </div>
-    </main>
+      <div class="landing-card-grid">
+        <article>
+          <span class="landing-card-icon equipment-icon equipment-icon-kettlebell" aria-hidden="true"></span>
+          <h3>Kettlebells</h3>
+          <p>Swings, goblet squats, carries, presses, get-ups, and full-body complexes.</p>
+        </article>
+        <article>
+          <span class="landing-card-icon equipment-icon equipment-icon-dumbbell" aria-hidden="true"></span>
+          <h3>Dumbbells</h3>
+          <p>Rows, presses, lunges, split squats, curls, and accessory work from your rack.</p>
+        </article>
+        <article>
+          <span class="landing-card-icon equipment-icon equipment-icon-barbell" aria-hidden="true"></span>
+          <h3>Barbells</h3>
+          <p>Strength-focused rows, presses, deadlifts, front squats, and simple complexes.</p>
+        </article>
+        <article>
+          <span class="landing-card-icon equipment-icon equipment-icon-bodyweight" aria-hidden="true"></span>
+          <h3>Bodyweight</h3>
+          <p>Pushups, core work, planks, squats, hinges, and conditioning when the floor is enough.</p>
+        </article>
+        <article>
+          <span class="landing-card-icon equipment-icon equipment-icon-band" aria-hidden="true"></span>
+          <h3>Resistance Bands</h3>
+          <p>Pull-aparts, face pulls, mobility prep, assisted moves, and finishers.</p>
+        </article>
+        <article>
+          <span class="landing-card-icon equipment-icon equipment-icon-mixed" aria-hidden="true"></span>
+          <h3>Mix It</h3>
+          <p>Select exactly what you own, then save workouts and plans around your actual setup.</p>
+        </article>
+      </div>
+    </section>
 
-    <div class="celebration" id="celebration" aria-live="polite" aria-hidden="true">
-      <div class="celebration-card">
-        <p>Workout complete</p>
-        <strong>Forged.</strong>
-        <div class="spark-field" aria-hidden="true">
-          <span></span><span></span><span></span><span></span><span></span><span></span>
-          <span></span><span></span><span></span><span></span><span></span><span></span>
+    <section class="landing-flow" id="how-it-works">
+      <div class="landing-section-header">
+        <p class="landing-eyebrow">How it works</p>
+        <h2>Three steps to a real workout.</h2>
+      </div>
+      <div class="landing-steps">
+        <article>
+          <span>01</span>
+          <h3>Tell it your gear</h3>
+          <p>Pick kettlebells, dumbbells, barbells, bands, bodyweight, or your own custom equipment.</p>
+        </article>
+        <article>
+          <span>02</span>
+          <h3>Choose or build</h3>
+          <p>Start from saved muscle-gain workouts, build your own EMOM, or assign sessions to the week.</p>
+        </article>
+        <article>
+          <span>03</span>
+          <h3>Train with cues</h3>
+          <p>The timer handles work, rest, countdowns, progress, history, and a little finish-line celebration.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="landing-timer-preview" aria-label="Timer preview">
+      <div class="landing-preview-display">
+        <p class="landing-eyebrow">Built-in timer</p>
+        <div class="preview-timer-row">
+          <div>
+            <strong>00<span>:</span>30</strong>
+            <small>Round 4 of 10</small>
+          </div>
+          <div class="preview-ring">
+            <svg viewBox="0 0 120 120" fill="none" aria-hidden="true">
+              <circle cx="60" cy="60" r="50" stroke="rgba(244,244,240,.12)" stroke-width="8"/>
+              <circle cx="60" cy="60" r="50" stroke="#E85D04" stroke-width="8" stroke-dasharray="314" stroke-dashoffset="86" stroke-linecap="round" transform="rotate(-90 60 60)"/>
+            </svg>
+            <span>Work</span>
+          </div>
+        </div>
+        <div class="preview-tags">
+          <span>EMOM</span>
+          <span>30s work</span>
+          <span>Audio cues</span>
+          <span>Progress</span>
         </div>
       </div>
-    </div>
+      <div class="landing-preview-copy">
+        <p class="landing-eyebrow">No phone fumbling</p>
+        <h2>The timer stays out of your way.</h2>
+        <p>Pick a workout, hit start, and let BellForge guide the intervals while the move list highlights what is active and what is next.</p>
+      </div>
+    </section>
 
-    <script src="./app.js" type="module"></script>
+    <section class="landing-close">
+      <h2>The workout you have been searching for is already in your garage.</h2>
+      <p>Stop waiting for the right gym or the perfect program. You have the equipment. BellForge helps you use it.</p>
+      <a class="landing-primary-link" href="./timer.html">Open BellForge</a>
+    </section>
   </body>
 </html>
