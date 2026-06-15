@@ -81,6 +81,8 @@ docker compose up --build
 
 The API contract is in `apps/api/openapi.yaml`, and the initial Postgres schema
 is in `apps/api/db/migrations/001_initial_schema.sql`.
+When `DATABASE_URL` is set, the API uses the Postgres repository adapter;
+otherwise it uses the in-memory repository for local prototyping and tests.
 
 See `docs/backend-phase-1.md` for the current backend architecture notes.
 

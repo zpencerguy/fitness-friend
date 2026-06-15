@@ -27,7 +27,12 @@ Cloud SQL, Supabase, Neon, or another portable Postgres host
 - Local services: `docker-compose.yml`
 - API Dockerfile: `apps/api/Dockerfile`
 
-The API currently uses an in-memory repository. This lets us test the endpoint contract before wiring the Postgres adapter.
+The API can run with either:
+
+- An in-memory repository when `DATABASE_URL` is not set.
+- A Postgres repository when `DATABASE_URL` is present.
+
+The in-memory repository keeps tests and frontend prototyping lightweight. The Postgres repository is the production path.
 
 ## Local Development
 
@@ -35,6 +40,14 @@ Run the API directly:
 
 ```sh
 npm run api:dev
+```
+
+By default this uses the in-memory repository.
+
+Run against Postgres:
+
+```sh
+DATABASE_URL=postgres://bellforge:bellforge@localhost:5432/bellforge npm run api:dev
 ```
 
 Run the API and Postgres with Docker:
@@ -124,7 +137,19 @@ Portability rules:
 
 ## Next Backend Step
 
-Add a Postgres repository adapter and move the in-memory API operations to real database reads/writes.
+Install dependencies and exercise the Postgres adapter against Docker Postgres:
+
+```sh
+npm install
+docker compose up --build
+```
+
+Then verify:
+
+```sh
+curl http://localhost:8080/health
+curl http://localhost:8080/v1/equipment -H "x-user-id: dev-user"
+```
 
 After that:
 

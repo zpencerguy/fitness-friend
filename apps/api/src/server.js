@@ -26,38 +26,38 @@ export function createApiServer({ repository = createMemoryRepository() } = {}) 
       }
 
       if (request.method === "GET" && url.pathname === "/v1/equipment") {
-        sendJson(response, 200, { data: repository.listEquipment(userId) });
+        sendJson(response, 200, { data: await repository.listEquipment(userId) });
         return;
       }
 
       if (request.method === "POST" && url.pathname === "/v1/equipment") {
         const payload = await readJson(request);
         requireFields(payload, ["name", "category"]);
-        sendJson(response, 201, { data: repository.createEquipment(userId, payload) });
+        sendJson(response, 201, { data: await repository.createEquipment(userId, payload) });
         return;
       }
 
       if (request.method === "GET" && url.pathname === "/v1/workout-templates") {
-        sendJson(response, 200, { data: repository.listWorkoutTemplates(userId) });
+        sendJson(response, 200, { data: await repository.listWorkoutTemplates(userId) });
         return;
       }
 
       if (request.method === "POST" && url.pathname === "/v1/workout-templates") {
         const payload = await readJson(request);
         requireFields(payload, ["name"]);
-        sendJson(response, 201, { data: repository.createWorkoutTemplate(userId, payload) });
+        sendJson(response, 201, { data: await repository.createWorkoutTemplate(userId, payload) });
         return;
       }
 
       if (request.method === "GET" && url.pathname === "/v1/completed-workouts") {
-        sendJson(response, 200, { data: repository.listCompletedWorkouts(userId) });
+        sendJson(response, 200, { data: await repository.listCompletedWorkouts(userId) });
         return;
       }
 
       if (request.method === "POST" && url.pathname === "/v1/completed-workouts") {
         const payload = await readJson(request);
         requireFields(payload, ["name", "rounds", "durationSeconds", "plannedDurationSeconds"]);
-        sendJson(response, 201, { data: repository.createCompletedWorkout(userId, payload) });
+        sendJson(response, 201, { data: await repository.createCompletedWorkout(userId, payload) });
         return;
       }
 
@@ -100,33 +100,33 @@ export async function handleApiRequest({
   }
 
   if (method === "GET" && path === "/v1/equipment") {
-    return { statusCode: 200, body: { data: repository.listEquipment(userId) } };
+    return { statusCode: 200, body: { data: await repository.listEquipment(userId) } };
   }
 
   if (method === "POST" && path === "/v1/equipment") {
     const payload = parseJsonText(body);
     requireFields(payload, ["name", "category"]);
-    return { statusCode: 201, body: { data: repository.createEquipment(userId, payload) } };
+    return { statusCode: 201, body: { data: await repository.createEquipment(userId, payload) } };
   }
 
   if (method === "GET" && path === "/v1/workout-templates") {
-    return { statusCode: 200, body: { data: repository.listWorkoutTemplates(userId) } };
+    return { statusCode: 200, body: { data: await repository.listWorkoutTemplates(userId) } };
   }
 
   if (method === "POST" && path === "/v1/workout-templates") {
     const payload = parseJsonText(body);
     requireFields(payload, ["name"]);
-    return { statusCode: 201, body: { data: repository.createWorkoutTemplate(userId, payload) } };
+    return { statusCode: 201, body: { data: await repository.createWorkoutTemplate(userId, payload) } };
   }
 
   if (method === "GET" && path === "/v1/completed-workouts") {
-    return { statusCode: 200, body: { data: repository.listCompletedWorkouts(userId) } };
+    return { statusCode: 200, body: { data: await repository.listCompletedWorkouts(userId) } };
   }
 
   if (method === "POST" && path === "/v1/completed-workouts") {
     const payload = parseJsonText(body);
     requireFields(payload, ["name", "rounds", "durationSeconds", "plannedDurationSeconds"]);
-    return { statusCode: 201, body: { data: repository.createCompletedWorkout(userId, payload) } };
+    return { statusCode: 201, body: { data: await repository.createCompletedWorkout(userId, payload) } };
   }
 
   return {
@@ -142,9 +142,19 @@ export async function handleApiRequest({
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const port = Number(process.env.PORT ?? DEFAULT_PORT);
-  const server = createApiServer();
+  const repository = await createConfiguredRepository();
+  const server = createApiServer({ repository });
 
   server.listen(port, () => {
     console.log(`BellForge API listening on http://localhost:${port}`);
+  });
+}
+
+export async function createConfiguredRepository(env = process.env) {
+  if (!env.DATABASE_URL) return createMemoryRepository();
+
+  const { createPostgresRepository } = await import("./postgres-repository.js");
+  return createPostgresRepository({
+    connectionString: env.DATABASE_URL,
   });
 }
