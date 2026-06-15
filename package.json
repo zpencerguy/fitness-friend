@@ -3,7 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "apps/api"
+  ],
   "scripts": {
+    "api:check": "node --check apps/api/src/server.js",
+    "api:dev": "node apps/api/src/server.js",
+    "api:test": "node --test apps/api/src/server.test.js",
     "test": "node timer.test.js"
   }
 }

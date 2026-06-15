@@ -1,0 +1,434 @@
+openapi: 3.1.0
+info:
+  title: BellForge API
+  version: 0.1.0
+  summary: Shared API for the BellForge web and iOS apps.
+servers:
+  - url: http://localhost:8080
+    description: Local Docker or Node development server
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      summary: API health check
+      security: []
+      responses:
+        "200":
+          description: Service status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, service, version, timestamp]
+                properties:
+                  ok:
+                    type: boolean
+                  service:
+                    type: string
+                  version:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+  /v1/equipment:
+    get:
+      summary: List current user's equipment
+      responses:
+        "200":
+          description: Equipment list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EquipmentListResponse"
+    post:
+      summary: Create equipment for current user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEquipmentRequest"
+      responses:
+        "201":
+          description: Created equipment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EquipmentResponse"
+  /v1/workout-templates:
+    get:
+      summary: List available workout templates
+      responses:
+        "200":
+          description: Template list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutTemplateListResponse"
+    post:
+      summary: Create a workout template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkoutTemplateRequest"
+      responses:
+        "201":
+          description: Created template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutTemplateResponse"
+  /v1/completed-workouts:
+    get:
+      summary: List completed workouts for current user
+      responses:
+        "200":
+          description: Completed workout list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompletedWorkoutListResponse"
+    post:
+      summary: Log a completed workout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCompletedWorkoutRequest"
+      responses:
+        "201":
+          description: Logged workout
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompletedWorkoutResponse"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Equipment:
+      type: object
+      required: [id, userId, name, category, selected, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        name:
+          type: string
+        category:
+          type: string
+        detail:
+          type: string
+        selected:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateEquipmentRequest:
+      type: object
+      required: [name, category]
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+        detail:
+          type: string
+        selected:
+          type: boolean
+    EquipmentResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/Equipment"
+    EquipmentListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Equipment"
+    WorkoutTemplate:
+      type: object
+      required: [id, userId, name, source, cycles, tags, visibility, movements, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        source:
+          type: string
+        cycles:
+          type: integer
+        tags:
+          type: array
+          items:
+            type: string
+        visibility:
+          type: string
+          enum: [private, public, creator_pack]
+        movements:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemplateMovement"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    TemplateMovement:
+      type: object
+      required: [id, position, moveName, target, pattern]
+      properties:
+        id:
+          type: string
+        position:
+          type: integer
+        moveName:
+          type: string
+        target:
+          type: string
+        pattern:
+          type: string
+        cue:
+          type: string
+        primaryMuscles:
+          type: array
+          items:
+            type: string
+        secondaryMuscles:
+          type: array
+          items:
+            type: string
+    CreateWorkoutTemplateRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        source:
+          type: string
+        cycles:
+          type: integer
+        tags:
+          type: array
+          items:
+            type: string
+        visibility:
+          type: string
+          enum: [private, public, creator_pack]
+        movements:
+          type: array
+          items:
+            type: object
+            properties:
+              moveName:
+                type: string
+              target:
+                type: string
+              pattern:
+                type: string
+              cue:
+                type: string
+              primaryMuscles:
+                type: array
+                items:
+                  type: string
+              secondaryMuscles:
+                type: array
+                items:
+                  type: string
+    WorkoutTemplateResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/WorkoutTemplate"
+    WorkoutTemplateListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkoutTemplate"
+    CompletedWorkout:
+      type: object
+      required:
+        - id
+        - userId
+        - name
+        - type
+        - rounds
+        - durationSeconds
+        - plannedDurationSeconds
+        - workSecondsPerRound
+        - restSecondsPerRound
+        - tags
+        - movements
+        - completedAt
+        - createdAt
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        plannedWorkoutId:
+          type: string
+          nullable: true
+        templateId:
+          type: string
+          nullable: true
+        name:
+          type: string
+        type:
+          type: string
+        rounds:
+          type: integer
+        durationSeconds:
+          type: integer
+        plannedDurationSeconds:
+          type: integer
+        workSecondsPerRound:
+          type: integer
+        restSecondsPerRound:
+          type: integer
+        tags:
+          type: array
+          items:
+            type: string
+        movements:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompletedMovement"
+        completedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+    CompletedMovement:
+      type: object
+      required: [id, position, moveName]
+      properties:
+        id:
+          type: string
+        position:
+          type: integer
+        moveName:
+          type: string
+        pattern:
+          type: string
+        target:
+          type: string
+        weightValue:
+          type: number
+          nullable: true
+        weightUnit:
+          type: string
+        repsCompleted:
+          type: integer
+          nullable: true
+        difficulty:
+          type: integer
+          nullable: true
+        notes:
+          type: string
+        primaryMuscles:
+          type: array
+          items:
+            type: string
+        secondaryMuscles:
+          type: array
+          items:
+            type: string
+    CreateCompletedWorkoutRequest:
+      type: object
+      required: [name, rounds, durationSeconds, plannedDurationSeconds]
+      properties:
+        plannedWorkoutId:
+          type: string
+        templateId:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          default: EMOM
+        rounds:
+          type: integer
+        durationSeconds:
+          type: integer
+        plannedDurationSeconds:
+          type: integer
+        workSecondsPerRound:
+          type: integer
+        restSecondsPerRound:
+          type: integer
+        tags:
+          type: array
+          items:
+            type: string
+        movements:
+          type: array
+          items:
+            type: object
+            properties:
+              moveName:
+                type: string
+              pattern:
+                type: string
+              target:
+                type: string
+              weightValue:
+                type: number
+              weightUnit:
+                type: string
+              repsCompleted:
+                type: integer
+              difficulty:
+                type: integer
+              notes:
+                type: string
+              primaryMuscles:
+                type: array
+                items:
+                  type: string
+              secondaryMuscles:
+                type: array
+                items:
+                  type: string
+    CompletedWorkoutResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/CompletedWorkout"
+    CompletedWorkoutListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompletedWorkout"

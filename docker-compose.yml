@@ -1,0 +1,35 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      NODE_ENV: development
+      PORT: 8080
+      DATABASE_URL: postgres://bellforge:bellforge@postgres:5432/bellforge
+      AUTH_MODE: development
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: bellforge
+      POSTGRES_USER: bellforge
+      POSTGRES_PASSWORD: bellforge
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bellforge -d bellforge"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - bellforge-postgres:/var/lib/postgresql/data
+      - ./apps/api/db/migrations:/docker-entrypoint-initdb.d:ro
+
+volumes:
+  bellforge-postgres:

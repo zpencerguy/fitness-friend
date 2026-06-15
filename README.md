@@ -69,6 +69,21 @@ https://zpencerguy.github.io/fitness-friend/
 node timer.test.js
 ```
 
+## Backend API
+
+Phase 1 backend scaffolding lives in `apps/api`.
+
+```sh
+npm run api:dev
+npm run api:test
+docker compose up --build
+```
+
+The API contract is in `apps/api/openapi.yaml`, and the initial Postgres schema
+is in `apps/api/db/migrations/001_initial_schema.sql`.
+
+See `docs/backend-phase-1.md` for the current backend architecture notes.
+
 ## Current data model
 
 Completed workouts are stored in the browser with IndexedDB under the original
