@@ -14,9 +14,12 @@ const DB_VERSION = 4;
 const STORE_NAME = "emomWorkouts";
 const PLAN_STORE_NAME = "weeklyPlans";
 const CUSTOM_TEMPLATES_KEY = "fitness-friend-custom-templates";
+const DELETED_TEMPLATES_KEY = "fitness-friend-deleted-templates";
 const SOUND_ENABLED_KEY = "fitness-friend-sound-enabled";
 const FAVORITE_TEMPLATES_KEY = "fitness-friend-favorite-templates";
 const EQUIPMENT_KEY = "fitness-friend-equipment";
+const TRANSFORMATION_BASELINE_KEY = "fitness-friend-transformation-baseline";
+const MUSCLE_GROUPS = ["Chest", "Back", "Shoulders", "Arms", "Legs", "Core"];
 const DEFAULT_FAVORITE_TEMPLATE_IDS = [
   "science-muscle-full-body",
   "science-muscle-core",
@@ -110,11 +113,13 @@ const MOVE_ART = new Map(
 
 const elements = {
   workoutName: document.querySelector("#workout-name"),
+  appTitle: document.querySelector("#app-title"),
   rounds: document.querySelector("#rounds"),
   workSeconds: document.querySelector("#work-seconds"),
   restSeconds: document.querySelector("#rest-seconds"),
   tags: document.querySelector("#tags"),
   movementArt: document.querySelector("#movement-art"),
+  timerContextDetails: document.querySelector("#timer-context-details"),
   phaseLabel: document.querySelector("#phase-label"),
   movementKicker: document.querySelector("#movement-kicker"),
   movementLabel: document.querySelector("#movement-label"),
@@ -143,6 +148,18 @@ const elements = {
   nextWeekButton: document.querySelector("#next-week-button"),
   progressSummary: document.querySelector("#progress-summary"),
   progressHeatmap: document.querySelector("#progress-heatmap"),
+  transformationSummary: document.querySelector("#transformation-summary"),
+  baselineForm: document.querySelector("#baseline-form"),
+  baselineStartDate: document.querySelector("#baseline-start-date"),
+  baselineWeight: document.querySelector("#baseline-weight"),
+  baselineWaist: document.querySelector("#baseline-waist"),
+  baselineChest: document.querySelector("#baseline-chest"),
+  baselineArm: document.querySelector("#baseline-arm"),
+  baselineGoal: document.querySelector("#baseline-goal"),
+  saveBaselineButton: document.querySelector("#save-baseline-button"),
+  transformationGrid: document.querySelector("#transformation-grid"),
+  muscleBalanceList: document.querySelector("#muscle-balance-list"),
+  strengthSignalList: document.querySelector("#strength-signal-list"),
   newTemplateButton: document.querySelector("#new-template-button"),
   clearBuilderButton: document.querySelector("#clear-builder-button"),
   builderTitle: document.querySelector("#builder-title"),
@@ -172,6 +189,11 @@ const elements = {
   totalMinutes: document.querySelector("#total-minutes"),
   totalRounds: document.querySelector("#total-rounds"),
   celebration: document.querySelector("#celebration"),
+  completionLog: document.querySelector("#completion-log"),
+  completionNotes: document.querySelector("#completion-notes"),
+  completionLogList: document.querySelector("#completion-log-list"),
+  saveMovementLogButton: document.querySelector("#save-movement-log-button"),
+  skipMovementLogButton: document.querySelector("#skip-movement-log-button"),
 };
 
 const state = {
@@ -185,12 +207,15 @@ const state = {
   activePlan: [],
   templates: [],
   builderEditingId: null,
+  builderEditingMoveIndex: null,
   builderMoves: [],
   equipment: loadEquipment(),
   activePlanSessionId: null,
   currentWeekStart: getStartOfWeek(new Date()),
   favoriteTemplateIds: loadFavoriteTemplateIds(),
   soundEnabled: loadSoundPreference(),
+  baseline: loadBaseline(),
+  pendingWorkoutLog: null,
   audioContext: null,
   audioUnlockPromise: null,
   playedAudioCues: new Set(),
@@ -283,6 +308,14 @@ function addWorkout(workout) {
   return withStore("readwrite", (store) => store.add(workout));
 }
 
+function putWorkout(workout) {
+  return withStore("readwrite", (store) => store.put(workout));
+}
+
+function deleteWorkout(workoutId) {
+  return withStore("readwrite", (store) => store.delete(workoutId));
+}
+
 function getWorkouts() {
   return withStore("readonly", (store) => store.getAll()).then((workouts) =>
     workouts.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt)),
@@ -331,6 +364,37 @@ function getWeekDays(weekStart = state.currentWeekStart) {
   return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
 }
 
+function loadBaseline() {
+  try {
+    const rawBaseline = localStorage.getItem(TRANSFORMATION_BASELINE_KEY);
+    return rawBaseline ? JSON.parse(rawBaseline) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveBaseline(baseline) {
+  state.baseline = baseline;
+  localStorage.setItem(TRANSFORMATION_BASELINE_KEY, JSON.stringify(baseline));
+}
+
+function numberOrNull(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
+function getBaselineFormValues() {
+  return {
+    startedAt: elements.baselineStartDate.value || getDateKey(new Date()),
+    bodyWeight: numberOrNull(elements.baselineWeight.value),
+    waist: numberOrNull(elements.baselineWaist.value),
+    chest: numberOrNull(elements.baselineChest.value),
+    arm: numberOrNull(elements.baselineArm.value),
+    goal: elements.baselineGoal.value.trim() || "Build visible muscle and strength",
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 function getEffectivePlanStatus(session, todayKey = getDateKey(new Date())) {
   if (!session) return "empty";
   if (session.status === "planned" && session.date < todayKey) return "missed";
@@ -354,7 +418,8 @@ function getFormValues() {
 }
 
 function loadTemplates() {
-  state.templates = [...workoutTemplates, ...loadCustomTemplates()];
+  const deletedTemplateIds = loadDeletedTemplateIds();
+  state.templates = [...workoutTemplates, ...loadCustomTemplates()].filter((template) => !deletedTemplateIds.has(template.id));
 }
 
 function loadCustomTemplates() {
@@ -367,6 +432,19 @@ function loadCustomTemplates() {
 
 function saveCustomTemplates(templates) {
   localStorage.setItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(templates));
+}
+
+function loadDeletedTemplateIds() {
+  try {
+    const deletedTemplateIds = JSON.parse(localStorage.getItem(DELETED_TEMPLATES_KEY) ?? "[]");
+    return new Set(Array.isArray(deletedTemplateIds) ? deletedTemplateIds : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveDeletedTemplateIds(templateIds) {
+  localStorage.setItem(DELETED_TEMPLATES_KEY, JSON.stringify([...templateIds]));
 }
 
 function loadFavoriteTemplateIds() {
@@ -478,6 +556,16 @@ function formatClock(totalSeconds) {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
+function updateTimerContext() {
+  const { name, rounds, workSeconds, restSeconds } = getFormValues();
+  const totalDuration = formatClock(getPlannedDurationSeconds(rounds, restSeconds));
+  const moveCount = state.selectedTemplate?.movements.length;
+  const moveSummary = moveCount ? ` · ${moveCount} moves` : "";
+
+  elements.appTitle.textContent = name;
+  elements.timerContextDetails.textContent = `${rounds} rounds${moveSummary} · ${totalDuration} total · ${workSeconds}s work / ${restSeconds}s rest`;
+}
+
 function updateDisplay() {
   validateIntervalInputs();
   const snapshot = getTimerSnapshot();
@@ -493,6 +581,7 @@ function updateDisplay() {
   elements.timeLeft.textContent = formatClock(snapshot.secondsLeft);
   elements.elapsedTime.textContent = `Elapsed ${formatClock(elapsedSeconds)}`;
   elements.progressFill.style.width = `${Math.min(100, snapshot.progress * 100)}%`;
+  updateTimerContext();
   document.body.classList.toggle("rest-mode", snapshot.isRest && state.status !== "complete");
   updateScheduleHighlight(snapshot);
 
@@ -670,6 +759,97 @@ async function playTone({ frequency, duration, volume, type }) {
   oscillator.stop(now + duration + 0.02);
 }
 
+function getDistinctMovementPlan(plan) {
+  const movements = new Map();
+
+  plan.forEach((movement) => {
+    const key = movement.move ? normalizeMoveName(movement.move) : `move-${movement.movementIndex}`;
+
+    if (!movements.has(key)) {
+      movements.set(key, {
+        move: movement.move,
+        target: movement.target ?? "",
+        pattern: movement.pattern ?? "Move",
+        cue: movement.cue ?? "",
+        primaryMuscles: movement.primaryMuscles ?? [],
+        secondaryMuscles: movement.secondaryMuscles ?? [],
+      });
+    }
+  });
+
+  return [...movements.values()];
+}
+
+function getWorkoutMovementLogs(workout) {
+  return Array.isArray(workout.movementLogs) ? workout.movementLogs : [];
+}
+
+function getLastMovementLog(moveName, workouts, excludeWorkoutId = null) {
+  const normalizedName = normalizeMoveName(moveName);
+
+  for (const workout of workouts) {
+    if (excludeWorkoutId && workout.id === excludeWorkoutId) continue;
+
+    const log = getWorkoutMovementLogs(workout).find(
+      (movementLog) => normalizeMoveName(movementLog.move) === normalizedName,
+    );
+
+    if (log && (log.weightValue || log.repsCompleted || log.effort)) {
+      return {
+        ...log,
+        completedAt: workout.completedAt,
+        workoutName: workout.name,
+      };
+    }
+  }
+
+  return null;
+}
+
+function formatLoadReps(log) {
+  const parts = [];
+
+  if (log.weightValue) parts.push(`${log.weightValue} ${log.weightUnit ?? "lb"}`);
+  if (log.repsCompleted) parts.push(`${log.repsCompleted} reps`);
+  if (log.effort) parts.push(`${log.effort}/10 effort`);
+
+  return parts.length ? parts.join(" · ") : "No numbers logged";
+}
+
+function getProgressionRecommendation(log, lastLog) {
+  if (!log.repsCompleted && !log.weightValue) return "Add reps or load so future sessions can compare.";
+  if (!lastLog) return "Baseline set. Repeat this move next time and try to beat one number.";
+
+  const currentWeight = log.weightValue ?? 0;
+  const lastWeight = lastLog.weightValue ?? 0;
+  const currentReps = log.repsCompleted ?? 0;
+  const lastReps = lastLog.repsCompleted ?? 0;
+  const effort = log.effort ?? 0;
+
+  if (effort >= 9) return "Hard set. Repeat this load next time and make it cleaner.";
+  if (currentWeight > lastWeight || currentReps > lastReps) return "Progress made. Next time add 1-2 reps or a small load jump.";
+  if (currentWeight === lastWeight && currentReps === lastReps) return "Matched last time. Push one more rep next time if form is solid.";
+  return "Keep the movement in rotation and rebuild reps before adding load.";
+}
+
+function buildDefaultMovementLogs(workouts, workoutId = null) {
+  return getDistinctMovementPlan(state.activePlan).map((movement) => {
+    const lastLog = getLastMovementLog(movement.move, workouts, workoutId);
+
+    return {
+      ...movement,
+      weightValue: null,
+      weightUnit: "lb",
+      repsCompleted: null,
+      effort: null,
+      notes: "",
+      lastLoggedAt: lastLog?.completedAt ?? null,
+      lastSummary: lastLog ? formatLoadReps(lastLog) : "",
+      recommendation: "Log numbers to unlock progression guidance.",
+    };
+  });
+}
+
 async function completeWorkout() {
   validateIntervalInputs();
   if (!state.startedAt || state.isCompleting || !isTimerConfigValid()) return;
@@ -686,6 +866,7 @@ async function completeWorkout() {
   const plannedDurationSeconds = getPlannedDurationSeconds(rounds, restSeconds);
   const durationSeconds = Math.max(1, Math.min(plannedDurationSeconds, Math.round(getElapsedMs() / 1000)));
   const completedAt = new Date().toISOString();
+  const previousWorkouts = await getWorkouts();
 
   const completedWorkout = {
     name,
@@ -701,9 +882,11 @@ async function completeWorkout() {
     templateName: state.selectedTemplate?.name ?? null,
     plannedSessionId: state.activePlanSessionId,
     plannedMovements: state.activePlan,
+    movementLogs: buildDefaultMovementLogs(previousWorkouts),
     type: "EMOM",
   };
   const completedWorkoutId = await addWorkout(completedWorkout);
+  const loggedWorkout = { ...completedWorkout, id: completedWorkoutId };
 
   if (state.activePlanSessionId) {
     const sessions = await getPlanSessions();
@@ -723,10 +906,12 @@ async function completeWorkout() {
 
   setStatus("complete");
   showCelebration();
+  showCompletionLog(loggedWorkout);
   state.isCompleting = false;
   updateDisplay();
   await renderHistory();
   await renderPlanner();
+  await renderProgress();
 }
 
 function getActiveMovement(snapshot) {
@@ -816,11 +1001,8 @@ function renderTemplates() {
       const activeClass = state.selectedTemplate?.id === template.id ? " is-active" : "";
       const isFavorite = state.favoriteTemplateIds.has(template.id);
       const favoriteClass = isFavorite ? " is-favorite" : "";
-      const customActions = template.isCustom
-        ? `
-            <button type="button" data-edit-template-id="${template.id}">Edit</button>
-            <button type="button" data-delete-template-id="${template.id}">Delete</button>
-          `
+      const editAction = template.isCustom
+        ? `<button type="button" data-edit-template-id="${template.id}" aria-label="Edit ${escapeHtml(template.name)}" title="Edit">Edit</button>`
         : "";
       const actions = `
         <div class="template-actions">
@@ -832,7 +1014,14 @@ function renderTemplates() {
             aria-pressed="${String(isFavorite)}"
             title="${isFavorite ? "Unfavorite" : "Favorite"}"
           >${isFavorite ? "★" : "☆"}</button>
-          ${customActions}
+          ${editAction}
+          <button
+            class="delete-icon-button"
+            type="button"
+            data-delete-template-id="${template.id}"
+            aria-label="Delete ${escapeHtml(template.name)}"
+            title="Delete"
+          >×</button>
         </div>
       `;
 
@@ -908,6 +1097,7 @@ function selectPlannedSession(session) {
 
 function startNewTemplate() {
   state.builderEditingId = null;
+  state.builderEditingMoveIndex = null;
   state.builderMoves = [];
   elements.builderTitle.textContent = "Workout Builder";
   elements.builderName.value = "";
@@ -916,6 +1106,7 @@ function startNewTemplate() {
   elements.builderMoveName.value = "";
   elements.builderMoveTarget.value = "";
   elements.builderMovePattern.value = "Hinge";
+  elements.addMoveButton.textContent = "Add Move";
   renderBuilder();
   switchTab("builder");
 }
@@ -933,13 +1124,27 @@ function editTemplate(templateId) {
   elements.builderMoveName.value = "";
   elements.builderMoveTarget.value = "";
   elements.builderMovePattern.value = "Hinge";
+  state.builderEditingMoveIndex = null;
+  elements.addMoveButton.textContent = "Add Move";
   renderBuilder();
   switchTab("builder");
 }
 
-function deleteTemplate(templateId) {
-  const customTemplates = loadCustomTemplates().filter((template) => template.id !== templateId);
+async function deleteTemplate(templateId) {
+  const template = state.templates.find((candidate) => candidate.id === templateId);
+  const customTemplates = loadCustomTemplates().filter((candidate) => candidate.id !== templateId);
+  const deletedTemplateIds = loadDeletedTemplateIds();
+
+  if (template && !template.isCustom) {
+    deletedTemplateIds.add(templateId);
+  }
+
   saveCustomTemplates(customTemplates);
+  saveDeletedTemplateIds(deletedTemplateIds);
+
+  if (state.favoriteTemplateIds.delete(templateId)) {
+    saveFavoriteTemplateIds();
+  }
 
   if (state.selectedTemplate?.id === templateId) {
     state.selectedTemplate = null;
@@ -951,10 +1156,17 @@ function deleteTemplate(templateId) {
     elements.tags.value = "";
   }
 
+  const sessions = await getPlanSessions();
+  await Promise.all(
+    sessions
+      .filter((session) => session.templateId === templateId)
+      .map((session) => deletePlanSession(session.id)),
+  );
+
   loadTemplates();
   renderTemplates();
   renderSchedule();
-  renderPlanner();
+  await renderPlanner();
   updateDisplay();
 }
 
@@ -968,15 +1180,49 @@ function addBuilderMove() {
     return;
   }
 
-  state.builderMoves.push({ move, target, pattern, cue: "" });
+  const nextMove = { move, target, pattern, cue: "" };
+
+  if (state.builderEditingMoveIndex !== null) {
+    state.builderMoves[state.builderEditingMoveIndex] = {
+      ...state.builderMoves[state.builderEditingMoveIndex],
+      ...nextMove,
+    };
+    state.builderEditingMoveIndex = null;
+    elements.addMoveButton.textContent = "Add Move";
+  } else {
+    state.builderMoves.push(nextMove);
+  }
+
   elements.builderMoveName.value = "";
   elements.builderMoveTarget.value = "";
   elements.builderMoveName.focus();
   renderBuilder();
 }
 
+function editBuilderMove(index) {
+  const movement = state.builderMoves[index];
+  if (!movement) return;
+
+  state.builderEditingMoveIndex = index;
+  elements.builderMoveName.value = movement.move;
+  elements.builderMoveTarget.value = movement.target;
+  elements.builderMovePattern.value = movement.pattern ?? "Hinge";
+  elements.addMoveButton.textContent = "Update Move";
+  elements.builderMoveName.focus();
+  renderBuilder();
+}
+
 function removeBuilderMove(index) {
   state.builderMoves.splice(index, 1);
+  if (state.builderEditingMoveIndex === index) {
+    state.builderEditingMoveIndex = null;
+    elements.builderMoveName.value = "";
+    elements.builderMoveTarget.value = "";
+    elements.builderMovePattern.value = "Hinge";
+    elements.addMoveButton.textContent = "Add Move";
+  } else if (state.builderEditingMoveIndex !== null && state.builderEditingMoveIndex > index) {
+    state.builderEditingMoveIndex -= 1;
+  }
   renderBuilder();
 }
 
@@ -1016,6 +1262,8 @@ function saveBuilderTemplate() {
   loadTemplates();
   selectTemplate(template.id);
   state.builderEditingId = template.id;
+  state.builderEditingMoveIndex = null;
+  elements.addMoveButton.textContent = "Add Move";
   renderPlanner();
 }
 
@@ -1028,12 +1276,15 @@ function renderBuilder() {
     ? state.builderMoves
         .map(
           (movement, index) => `
-            <li>
+            <li class="${state.builderEditingMoveIndex === index ? "is-editing" : ""}">
               ${renderMoveArt(movement, "move-art-thumb")}
               <span>${index + 1}</span>
               <strong>${escapeHtml(movement.move)}</strong>
               <small><b>${escapeHtml(movement.pattern ?? "Move")}</b> ${escapeHtml(movement.target)}</small>
-              <button type="button" data-remove-builder-move="${index}">Remove</button>
+              <span class="builder-move-actions">
+                <button type="button" data-edit-builder-move="${index}">Edit</button>
+                <button type="button" data-remove-builder-move="${index}">Remove</button>
+              </span>
             </li>
           `,
         )
@@ -1127,9 +1378,11 @@ function renderPlannerOptions(weekDays) {
     elements.plannerDate.value = selectedDate;
   }
 
-  elements.plannerTemplate.innerHTML = getSortedTemplates()
-    .map((template) => `<option value="${template.id}">${escapeHtml(template.name)}</option>`)
-    .join("");
+  const sortedTemplates = getSortedTemplates();
+
+  elements.plannerTemplate.innerHTML = sortedTemplates.length
+    ? sortedTemplates.map((template) => `<option value="${template.id}">${escapeHtml(template.name)}</option>`).join("")
+    : '<option value="">No workouts available</option>';
 }
 
 function renderPlanDay(date, session) {
@@ -1143,6 +1396,7 @@ function renderPlanDay(date, session) {
         <small>${escapeHtml(session.focus)} · ${formatClock(session.plannedDurationSeconds)}</small>
         <div class="plan-actions">
           <button type="button" data-start-plan-id="${session.id}" ${status === "completed" || state.status === "running" || state.status === "paused" ? "disabled" : ""}>Start</button>
+          <button type="button" data-edit-plan-id="${session.id}">Edit</button>
           <button type="button" data-skip-plan-id="${session.id}" ${status !== "planned" ? "disabled" : ""}>Skip</button>
           <button type="button" data-clear-plan-id="${session.id}">Clear</button>
         </div>
@@ -1221,6 +1475,18 @@ async function skipPlanSession(sessionId) {
 async function clearPlanSession(sessionId) {
   await deletePlanSession(sessionId);
   await renderPlanner();
+}
+
+async function editPlanSession(sessionId) {
+  const sessions = await getPlanSessions();
+  const session = sessions.find((candidate) => candidate.id === sessionId);
+
+  if (!session) return;
+
+  elements.plannerDate.value = session.date;
+  elements.plannerTemplate.value = session.templateId;
+  elements.plannerFocus.value = session.focus;
+  elements.plannerTemplate.focus();
 }
 
 function renderProgressHeatmap(sessions, workouts) {
@@ -1384,6 +1650,268 @@ function renderMuscleTags(movement) {
   `;
 }
 
+function populateBaselineForm() {
+  const baseline = state.baseline;
+
+  elements.baselineStartDate.value = baseline?.startedAt ?? getDateKey(new Date());
+  elements.baselineWeight.value = baseline?.bodyWeight ?? "";
+  elements.baselineWaist.value = baseline?.waist ?? "";
+  elements.baselineChest.value = baseline?.chest ?? "";
+  elements.baselineArm.value = baseline?.arm ?? "";
+  elements.baselineGoal.value = baseline?.goal ?? "Build visible muscle and strength";
+}
+
+async function saveBaselineFromForm() {
+  saveBaseline(getBaselineFormValues());
+  await renderProgress();
+}
+
+async function renderProgress() {
+  const workouts = await getWorkouts();
+  const baseline = state.baseline;
+  const completedWithLogs = workouts.filter((workout) => getWorkoutMovementLogs(workout).some((log) => log.weightValue || log.repsCompleted || log.effort));
+
+  populateBaselineForm();
+  elements.transformationSummary.textContent = baseline ? `${workouts.length} workouts logged` : "No baseline";
+  elements.transformationGrid.innerHTML = renderTransformationCards(workouts, completedWithLogs);
+  elements.muscleBalanceList.innerHTML = renderMuscleBalance(workouts);
+  elements.strengthSignalList.innerHTML = renderStrengthSignals(workouts);
+}
+
+function renderTransformationCards(workouts, completedWithLogs) {
+  const baseline = state.baseline;
+  const startDate = baseline?.startedAt ? parseDateKey(baseline.startedAt) : null;
+  const daysTraining = startDate ? Math.max(1, Math.ceil((Date.now() - startDate.getTime()) / 86400000)) : 0;
+  const recentWorkouts = workouts.filter((workout) => Date.now() - new Date(workout.completedAt).getTime() <= 7 * 86400000);
+  const metrics = [
+    ["Starting weight", baseline?.bodyWeight ? `${baseline.bodyWeight} lb` : "Set baseline"],
+    ["Waist", baseline?.waist ? `${baseline.waist} in` : "Add measurement"],
+    ["Training days", daysTraining ? String(daysTraining) : "Start today"],
+    ["This week", `${recentWorkouts.length} workouts`],
+    ["Logged lifts", String(completedWithLogs.length)],
+    ["Goal", baseline?.goal ?? "Build visible muscle"],
+  ];
+
+  return metrics
+    .map(
+      ([label, value]) => `
+        <article class="transformation-card">
+          <span>${escapeHtml(label)}</span>
+          <strong>${escapeHtml(value)}</strong>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function getLogMuscles(log) {
+  return [...(log.primaryMuscles ?? []), ...(log.secondaryMuscles ?? [])];
+}
+
+function getMuscleGroup(muscle) {
+  const normalizedMuscle = muscle.toLowerCase();
+
+  if (/(chest|pectoral)/.test(normalizedMuscle)) return "Chest";
+  if (/(back|latissimus|rhomboid|trapezius)/.test(normalizedMuscle)) return "Back";
+  if (/(shoulder|deltoid|rotator cuff)/.test(normalizedMuscle)) return "Shoulders";
+  if (/(biceps|triceps|forearm|brach)/.test(normalizedMuscle)) return "Arms";
+  if (/(quad|glute|hamstring|calf|adductor|abductor|leg)/.test(normalizedMuscle)) return "Legs";
+  if (/(core|abdom|oblique|spinae|rectus|transverse)/.test(normalizedMuscle)) return "Core";
+  return null;
+}
+
+function renderMuscleBalance(workouts) {
+  const since = Date.now() - 7 * 86400000;
+  const counts = new Map(MUSCLE_GROUPS.map((muscle) => [muscle, 0]));
+
+  workouts
+    .filter((workout) => new Date(workout.completedAt).getTime() >= since)
+    .forEach((workout) => {
+      const logs = getWorkoutMovementLogs(workout).length ? getWorkoutMovementLogs(workout) : getDistinctMovementPlan(workout.plannedMovements ?? []);
+      logs.forEach((log) => {
+        getLogMuscles(log).forEach((muscle) => {
+          const group = getMuscleGroup(muscle);
+          if (group) counts.set(group, (counts.get(group) ?? 0) + 1);
+        });
+      });
+    });
+
+  const max = Math.max(1, ...counts.values());
+
+  return [...counts.entries()]
+    .map(
+      ([muscle, count]) => `
+        <div class="muscle-balance-item">
+          <span>${escapeHtml(muscle)}</span>
+          <div><i style="width: ${(count / max) * 100}%"></i></div>
+          <b>${count}</b>
+        </div>
+      `,
+    )
+    .join("");
+}
+
+function renderStrengthSignals(workouts) {
+  const signals = workouts
+    .flatMap((workout) =>
+      getWorkoutMovementLogs(workout)
+        .filter((log) => log.weightValue || log.repsCompleted || log.effort)
+        .map((log) => ({ ...log, workoutName: workout.name, completedAt: workout.completedAt })),
+    )
+    .slice(0, 6);
+
+  if (!signals.length) {
+    return '<p class="empty-state">Complete a workout and log reps or load to start seeing progression hints.</p>';
+  }
+
+  return signals
+    .map(
+      (log) => `
+        <article class="strength-signal">
+          <div>
+            <strong>${escapeHtml(log.move)}</strong>
+            <span>${escapeHtml(formatLoadReps(log))}</span>
+          </div>
+          <p>${escapeHtml(log.recommendation ?? "Repeat and improve one number next time.")}</p>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function showCompletionLog(workout) {
+  const movementLogs = getWorkoutMovementLogs(workout);
+
+  if (!movementLogs.length) return;
+
+  state.pendingWorkoutLog = workout;
+  elements.completionLog.hidden = false;
+  elements.completionLog.setAttribute("aria-hidden", "false");
+  elements.completionNotes.value = workout.notes ?? "";
+  elements.completionLogList.innerHTML = movementLogs.map(renderMovementLogRow).join("");
+}
+
+function hideCompletionLog() {
+  state.pendingWorkoutLog = null;
+  elements.completionLog.hidden = true;
+  elements.completionLog.setAttribute("aria-hidden", "true");
+  elements.completionNotes.value = "";
+  elements.completionLogList.innerHTML = "";
+}
+
+function renderMovementLogRow(log, index) {
+  const lastCopy = log.lastSummary ? `Last time: ${log.lastSummary}` : "First tracked session";
+
+  return `
+    <article class="movement-log-row" data-log-index="${index}">
+      <div class="movement-log-title">
+        <strong>${escapeHtml(log.move)}</strong>
+        <span>${escapeHtml(log.target || log.pattern || "Move")}</span>
+      </div>
+      <p>${escapeHtml(lastCopy)}</p>
+      <div class="movement-log-inputs">
+        <label>
+          Load
+          <input data-log-field="weightValue" type="number" min="0" step="0.5" placeholder="lb" value="${escapeHtml(log.weightValue ?? "")}">
+        </label>
+        <label>
+          Reps
+          <input data-log-field="repsCompleted" type="number" min="0" step="1" placeholder="8-12" value="${escapeHtml(log.repsCompleted ?? "")}">
+        </label>
+        <label>
+          Effort
+          <input data-log-field="effort" type="number" min="1" max="10" step="1" placeholder="1-10" value="${escapeHtml(log.effort ?? "")}">
+        </label>
+      </div>
+    </article>
+  `;
+}
+
+async function saveMovementLog() {
+  if (!state.pendingWorkoutLog) return;
+
+  const workouts = await getWorkouts();
+  const logs = getWorkoutMovementLogs(state.pendingWorkoutLog).map((log, index) => {
+    const row = elements.completionLogList.querySelector(`[data-log-index="${index}"]`);
+    const weightValue = numberOrNull(row?.querySelector('[data-log-field="weightValue"]')?.value);
+    const repsCompleted = numberOrNull(row?.querySelector('[data-log-field="repsCompleted"]')?.value);
+    const effort = numberOrNull(row?.querySelector('[data-log-field="effort"]')?.value);
+    const lastLog = getLastMovementLog(log.move, workouts, state.pendingWorkoutLog.id);
+    const nextLog = {
+      ...log,
+      weightValue,
+      repsCompleted,
+      effort,
+      loggedAt: new Date().toISOString(),
+      lastLoggedAt: lastLog?.completedAt ?? null,
+      lastSummary: lastLog ? formatLoadReps(lastLog) : "",
+    };
+
+    return {
+      ...nextLog,
+      recommendation: getProgressionRecommendation(nextLog, lastLog),
+    };
+  });
+
+  const updatedWorkout = {
+    ...state.pendingWorkoutLog,
+    movementLogs: logs,
+    notes: elements.completionNotes.value.trim(),
+  };
+
+  await putWorkout(updatedWorkout);
+  hideCompletionLog();
+  await renderHistory();
+  await renderPlanner();
+  await renderProgress();
+}
+
+async function editCompletedWorkout(workoutId) {
+  const workouts = await getWorkouts();
+  const workout = workouts.find((candidate) => String(candidate.id) === String(workoutId));
+
+  if (!workout) return;
+
+  if (!getWorkoutMovementLogs(workout).length && Array.isArray(workout.plannedMovements)) {
+    workout.movementLogs = getDistinctMovementPlan(workout.plannedMovements).map((movement) => ({
+      ...movement,
+      weightValue: null,
+      weightUnit: "lb",
+      repsCompleted: null,
+      effort: null,
+      notes: "",
+      recommendation: "Log numbers to unlock progression guidance.",
+    }));
+  }
+
+  showCompletionLog(workout);
+}
+
+async function deleteCompletedWorkout(workoutId) {
+  const numericWorkoutId = Number(workoutId);
+  if (!Number.isFinite(numericWorkoutId)) return;
+
+  await deleteWorkout(numericWorkoutId);
+
+  const sessions = await getPlanSessions();
+  await Promise.all(
+    sessions
+      .filter((session) => String(session.completedWorkoutId) === String(workoutId))
+      .map((session) =>
+        putPlanSession({
+          ...session,
+          status: "planned",
+          completedWorkoutId: null,
+          updatedAt: new Date().toISOString(),
+        }),
+      ),
+  );
+
+  await renderHistory();
+  await renderPlanner();
+  await renderProgress();
+}
+
 function renderWorkout(workout) {
   const completedDate = new Date(workout.completedAt);
   const tags = workout.tags?.length
@@ -1392,15 +1920,33 @@ function renderWorkout(workout) {
   const equipment = workout.equipment?.length
     ? `<div class="equipment-summary-row">${workout.equipment.map((item) => `<span class="equipment-chip">${escapeHtml(item.name)}</span>`).join("")}</div>`
     : "";
+  const notes = workout.notes
+    ? `<p class="history-notes">${escapeHtml(workout.notes)}</p>`
+    : "";
+  const movementLogs = getWorkoutMovementLogs(workout).filter((log) => log.weightValue || log.repsCompleted || log.effort);
+  const movementLogSummary = movementLogs.length
+    ? `
+      <div class="history-movement-logs">
+        ${movementLogs
+          .slice(0, 4)
+          .map((log) => `<span>${escapeHtml(log.move)}: ${escapeHtml(formatLoadReps(log))}</span>`)
+          .join("")}
+      </div>
+    `
+    : "";
 
   return `
-    <article class="history-item">
+    <article class="history-item" data-workout-id="${workout.id}">
       <div class="history-title">
         <strong>${escapeHtml(workout.name)}</strong>
-        <time datetime="${workout.completedAt}">${completedDate.toLocaleDateString([], {
-          month: "short",
-          day: "numeric",
-        })}</time>
+        <span class="history-title-actions">
+          <time datetime="${workout.completedAt}">${completedDate.toLocaleDateString([], {
+            month: "short",
+            day: "numeric",
+          })}</time>
+          <button type="button" data-edit-workout-id="${workout.id}">Edit</button>
+          <button type="button" data-delete-workout-id="${workout.id}">Delete</button>
+        </span>
       </div>
       <div class="history-meta">
         <span>${workout.rounds} rounds</span>
@@ -1411,6 +1957,8 @@ function renderWorkout(workout) {
       </div>
       ${tags}
       ${equipment}
+      ${notes}
+      ${movementLogSummary}
     </article>
   `;
 }
@@ -1485,6 +2033,26 @@ elements.restSeconds.addEventListener("input", () => {
   renderSchedule();
 });
 elements.savePlanButton.addEventListener("click", savePlanFromForm);
+elements.saveBaselineButton.addEventListener("click", saveBaselineFromForm);
+elements.baselineForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  saveBaselineFromForm();
+});
+elements.saveMovementLogButton.addEventListener("click", saveMovementLog);
+elements.skipMovementLogButton.addEventListener("click", hideCompletionLog);
+elements.historyList.addEventListener("click", async (event) => {
+  const editButton = event.target.closest("[data-edit-workout-id]");
+  const deleteButton = event.target.closest("[data-delete-workout-id]");
+
+  if (editButton) {
+    await editCompletedWorkout(editButton.dataset.editWorkoutId);
+    return;
+  }
+
+  if (deleteButton) {
+    await deleteCompletedWorkout(deleteButton.dataset.deleteWorkoutId);
+  }
+});
 elements.previousWeekButton.addEventListener("click", async () => {
   state.currentWeekStart = addDays(state.currentWeekStart, -7);
   await renderPlanner();
@@ -1500,6 +2068,7 @@ elements.nextWeekButton.addEventListener("click", async () => {
 elements.plannerGrid.addEventListener("click", async (event) => {
   const addButton = event.target.closest("[data-plan-date]");
   const startButton = event.target.closest("[data-start-plan-id]");
+  const editButton = event.target.closest("[data-edit-plan-id]");
   const skipButton = event.target.closest("[data-skip-plan-id]");
   const clearButton = event.target.closest("[data-clear-plan-id]");
 
@@ -1511,6 +2080,11 @@ elements.plannerGrid.addEventListener("click", async (event) => {
 
   if (startButton && !startButton.disabled) {
     await startPlanSession(startButton.dataset.startPlanId);
+    return;
+  }
+
+  if (editButton && !editButton.disabled) {
+    await editPlanSession(editButton.dataset.editPlanId);
     return;
   }
 
@@ -1535,11 +2109,17 @@ elements.builderMoveTarget.addEventListener("keydown", (event) => {
   }
 });
 elements.builderMoveList.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-remove-builder-move]");
+  const editButton = event.target.closest("[data-edit-builder-move]");
+  const removeButton = event.target.closest("[data-remove-builder-move]");
 
-  if (!button) return;
+  if (editButton) {
+    editBuilderMove(Number(editButton.dataset.editBuilderMove));
+    return;
+  }
 
-  removeBuilderMove(Number(button.dataset.removeBuilderMove));
+  if (!removeButton) return;
+
+  removeBuilderMove(Number(removeButton.dataset.removeBuilderMove));
 });
 elements.addEquipmentButton.addEventListener("click", addEquipment);
 elements.equipmentForm.addEventListener("submit", (event) => {
@@ -1568,7 +2148,7 @@ elements.equipmentList.addEventListener("click", (event) => {
 elements.tabButtons.forEach((button) => {
   button.addEventListener("click", () => switchTab(button.dataset.tab));
 });
-elements.templateList.addEventListener("click", (event) => {
+elements.templateList.addEventListener("click", async (event) => {
   const favoriteButton = event.target.closest("[data-favorite-template-id]");
   const deleteButton = event.target.closest("[data-delete-template-id]");
   const editButton = event.target.closest("[data-edit-template-id]");
@@ -1580,7 +2160,7 @@ elements.templateList.addEventListener("click", (event) => {
   }
 
   if (deleteButton) {
-    deleteTemplate(deleteButton.dataset.deleteTemplateId);
+    await deleteTemplate(deleteButton.dataset.deleteTemplateId);
     return;
   }
 
@@ -1604,3 +2184,4 @@ setStatus("ready");
 updateSoundButton();
 updateDisplay();
 renderHistory();
+renderProgress();

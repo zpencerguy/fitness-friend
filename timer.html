@@ -11,18 +11,32 @@
     <link rel="stylesheet" href="./styles.css?v=20260615">
   </head>
   <body>
+    <nav class="app-topbar" aria-label="BellForge app navigation">
+      <a class="app-home-link" href="./index.html" aria-label="BellForge home">
+        <svg class="brand-mark" width="26" height="26" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <path d="M14 4L6 8v12l8 4 8-4V8L14 4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M14 4v24M6 8l8 4 8-4" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        </svg>
+        <span>BellForge</span>
+      </a>
+      <div class="app-nav-tabs" role="tablist" aria-label="BellForge sections">
+        <button class="tab-button" id="plan-tab-button" type="button" role="tab" aria-selected="false" aria-controls="plan-tab" data-tab="plan">Plan</button>
+        <button class="tab-button" id="progress-tab-button" type="button" role="tab" aria-selected="false" aria-controls="progress-tab" data-tab="progress">Progress</button>
+        <button class="tab-button is-active" id="templates-tab-button" type="button" role="tab" aria-selected="true" aria-controls="templates-tab" data-tab="templates">Workouts</button>
+        <button class="tab-button" id="builder-tab-button" type="button" role="tab" aria-selected="false" aria-controls="builder-tab" data-tab="builder">Builder</button>
+        <button class="tab-button" id="equipment-tab-button" type="button" role="tab" aria-selected="false" aria-controls="equipment-tab" data-tab="equipment">Equipment</button>
+        <button class="tab-button" id="moves-tab-button" type="button" role="tab" aria-selected="false" aria-controls="moves-tab" data-tab="moves">Moves</button>
+        <button class="tab-button" id="history-tab-button" type="button" role="tab" aria-selected="false" aria-controls="history-tab" data-tab="history">History</button>
+      </div>
+    </nav>
+
     <main class="app-shell">
       <section class="timer-panel" aria-labelledby="app-title">
-        <div class="brand-row">
-          <div class="brand-lockup">
-            <svg class="brand-mark" width="32" height="32" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-              <path d="M14 4L6 8v12l8 4 8-4V8L14 4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-              <path d="M14 4v24M6 8l8 4 8-4" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-            </svg>
-            <div>
-              <p class="eyebrow">Equipment-aware training</p>
-              <h1 id="app-title">BellForge</h1>
-            </div>
+        <div class="timer-context">
+          <div>
+            <p class="eyebrow">Current workout</p>
+            <h1 id="app-title">Manual EMOM</h1>
+            <p id="timer-context-details">10 rounds · 10:00 total · 30s work / 30s rest</p>
           </div>
           <div class="status-pill" id="timer-state">Ready</div>
         </div>
@@ -65,15 +79,6 @@
 
       <div class="side-rail">
         <section class="workspace-panel" aria-label="Workout workspace">
-          <div class="workspace-tabs" role="tablist" aria-label="Workout workspace">
-            <button class="tab-button" id="plan-tab-button" type="button" role="tab" aria-selected="false" aria-controls="plan-tab" data-tab="plan">Plan</button>
-            <button class="tab-button is-active" id="templates-tab-button" type="button" role="tab" aria-selected="true" aria-controls="templates-tab" data-tab="templates">Workouts</button>
-            <button class="tab-button" id="builder-tab-button" type="button" role="tab" aria-selected="false" aria-controls="builder-tab" data-tab="builder">Builder</button>
-            <button class="tab-button" id="equipment-tab-button" type="button" role="tab" aria-selected="false" aria-controls="equipment-tab" data-tab="equipment">Equipment</button>
-            <button class="tab-button" id="moves-tab-button" type="button" role="tab" aria-selected="false" aria-controls="moves-tab" data-tab="moves">Moves</button>
-            <button class="tab-button" id="history-tab-button" type="button" role="tab" aria-selected="false" aria-controls="history-tab" data-tab="history">History</button>
-          </div>
-
           <section class="tab-panel" id="plan-tab" role="tabpanel" aria-labelledby="plan-tab-button" data-tab-panel="plan" hidden>
             <div class="panel-header">
               <div>
@@ -129,6 +134,64 @@
                 <i class="heat-planned-completed"></i>
                 <span>More</span>
               </div>
+            </div>
+          </section>
+
+          <section class="tab-panel" id="progress-tab" role="tabpanel" aria-labelledby="progress-tab-button" data-tab-panel="progress" hidden>
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Transformation</p>
+                <h2 id="progress-title">Progress Tracker</h2>
+              </div>
+              <span class="panel-count" id="transformation-summary">No baseline</span>
+            </div>
+
+            <form class="baseline-form" id="baseline-form">
+              <label>
+                Start date
+                <input id="baseline-start-date" type="date">
+              </label>
+              <label>
+                Body weight
+                <input id="baseline-weight" type="number" min="0" step="0.1" placeholder="190">
+              </label>
+              <label>
+                Waist
+                <input id="baseline-waist" type="number" min="0" step="0.1" placeholder="36">
+              </label>
+              <label>
+                Chest
+                <input id="baseline-chest" type="number" min="0" step="0.1" placeholder="40">
+              </label>
+              <label>
+                Arm
+                <input id="baseline-arm" type="number" min="0" step="0.1" placeholder="13">
+              </label>
+              <label>
+                Goal
+                <input id="baseline-goal" type="text" placeholder="Build visible muscle and strength">
+              </label>
+              <button class="primary" id="save-baseline-button" type="button">Save Baseline</button>
+            </form>
+
+            <div class="transformation-grid" id="transformation-grid"></div>
+
+            <div class="progress-insights">
+              <section>
+                <div class="section-heading">
+                  <p class="eyebrow">Balance</p>
+                  <strong>Last 7 days by muscle group</strong>
+                </div>
+                <div class="muscle-balance-list" id="muscle-balance-list"></div>
+              </section>
+
+              <section>
+                <div class="section-heading">
+                  <p class="eyebrow">Strength signals</p>
+                  <strong>Recent movement logs</strong>
+                </div>
+                <div class="strength-signal-list" id="strength-signal-list"></div>
+              </section>
             </div>
           </section>
 
@@ -285,6 +348,27 @@
         </section>
       </div>
     </main>
+
+    <div class="completion-log" id="completion-log" aria-hidden="true" hidden>
+      <section class="completion-log-card" aria-labelledby="completion-log-title">
+        <div class="completion-log-header">
+          <div>
+            <p class="eyebrow">Log progress</p>
+            <h2 id="completion-log-title">What did you lift?</h2>
+          </div>
+          <div class="completion-log-header-actions">
+            <button class="primary" id="save-movement-log-button" type="button">Save Progress</button>
+            <button class="compact-button" id="skip-movement-log-button" type="button">Skip</button>
+          </div>
+        </div>
+        <p class="completion-log-copy">Capture reps, load, and effort while the workout is fresh. This is what makes future workouts smarter.</p>
+        <label class="completion-notes">
+          Notes
+          <textarea id="completion-notes" rows="3" placeholder="How did it feel? Any pain, form notes, or load changes for next time?"></textarea>
+        </label>
+        <div class="movement-log-list" id="completion-log-list"></div>
+      </section>
+    </div>
 
     <div class="celebration" id="celebration" aria-live="polite" aria-hidden="true">
       <div class="celebration-card">
