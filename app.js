@@ -181,6 +181,11 @@ const elements = {
   equipmentCount: document.querySelector("#equipment-count"),
   equipmentList: document.querySelector("#equipment-list"),
   templateList: document.querySelector("#template-list"),
+  exerciseCount: document.querySelector("#exercise-count"),
+  exerciseSearch: document.querySelector("#exercise-search"),
+  exercisePatternFilter: document.querySelector("#exercise-pattern-filter"),
+  exerciseEquipmentFilter: document.querySelector("#exercise-equipment-filter"),
+  exerciseList: document.querySelector("#exercise-list"),
   scheduleTitle: document.querySelector("#schedule-title"),
   scheduleSummary: document.querySelector("#schedule-summary"),
   scheduleList: document.querySelector("#schedule-list"),
@@ -1165,6 +1170,7 @@ async function deleteTemplate(templateId) {
 
   loadTemplates();
   renderTemplates();
+  renderExerciseLibrary({ refreshFilters: true });
   renderSchedule();
   await renderPlanner();
   updateDisplay();
@@ -1264,6 +1270,7 @@ function saveBuilderTemplate() {
   state.builderEditingId = template.id;
   state.builderEditingMoveIndex = null;
   elements.addMoveButton.textContent = "Add Move";
+  renderExerciseLibrary({ refreshFilters: true });
   renderPlanner();
 }
 
@@ -1647,6 +1654,129 @@ function renderMuscleTags(movement) {
       ${primaryMuscles.map((muscle) => `<span class="muscle-tag is-primary">${escapeHtml(muscle)}</span>`).join("")}
       ${secondaryMuscles.map((muscle) => `<span class="muscle-tag">${escapeHtml(muscle)}</span>`).join("")}
     </div>
+  `;
+}
+
+function getExerciseLibrary() {
+  const exercisesByName = new Map();
+
+  state.templates.forEach((template) => {
+    template.movements.forEach((movement) => {
+      const key = normalizeMoveName(movement.move ?? movement.moveName);
+      if (!key) return;
+
+      const existingExercise = exercisesByName.get(key);
+      const sourceWorkout = template.name;
+      const equipment = inferExerciseEquipment(movement, template);
+      const nextExercise = existingExercise ?? {
+        id: key,
+        move: movement.move ?? movement.moveName,
+        target: movement.target ?? "",
+        pattern: movement.pattern ?? "Move",
+        cue: movement.cue ?? "",
+        equipment,
+        difficulty: inferExerciseDifficulty(template),
+        primaryMuscles: movement.primaryMuscles ?? [],
+        secondaryMuscles: movement.secondaryMuscles ?? [],
+        sourceWorkouts: [],
+      };
+
+      if (!nextExercise.sourceWorkouts.includes(sourceWorkout)) {
+        nextExercise.sourceWorkouts.push(sourceWorkout);
+      }
+
+      if (!nextExercise.primaryMuscles.length && movement.primaryMuscles?.length) {
+        nextExercise.primaryMuscles = movement.primaryMuscles;
+      }
+
+      if (!nextExercise.secondaryMuscles.length && movement.secondaryMuscles?.length) {
+        nextExercise.secondaryMuscles = movement.secondaryMuscles;
+      }
+
+      exercisesByName.set(key, nextExercise);
+    });
+  });
+
+  return [...exercisesByName.values()].sort((a, b) => a.move.localeCompare(b.move));
+}
+
+function inferExerciseEquipment(movement, template) {
+  const combinedText = `${movement.move ?? ""} ${template.tags?.join(" ") ?? ""}`.toLowerCase();
+
+  if (combinedText.includes("dumbbell")) return "Dumbbells";
+  if (combinedText.includes("barbell")) return "Barbell";
+  if (combinedText.includes("bodyweight") || combinedText.includes("pushup") || combinedText.includes("burpee")) return "Bodyweight";
+  if (combinedText.includes("band")) return "Bands";
+  if (combinedText.includes("kettlebell") || combinedText.includes("kb") || combinedText.includes("bell")) return "Kettlebell";
+  return "Mixed";
+}
+
+function inferExerciseDifficulty(template) {
+  const tags = template.tags ?? [];
+
+  if (tags.includes("beginner")) return "Beginner";
+  if (tags.includes("hypertrophy") || tags.includes("strength")) return "Intermediate";
+  return "All levels";
+}
+
+function renderExerciseFilterOptions(exercises) {
+  const selectedPattern = elements.exercisePatternFilter.value;
+  const selectedEquipment = elements.exerciseEquipmentFilter.value;
+  const patterns = [...new Set(exercises.map((exercise) => exercise.pattern).filter(Boolean))].sort();
+  const equipment = [...new Set(exercises.map((exercise) => exercise.equipment).filter(Boolean))].sort();
+
+  elements.exercisePatternFilter.innerHTML = [
+    '<option value="">All patterns</option>',
+    ...patterns.map((pattern) => `<option value="${escapeHtml(pattern)}">${escapeHtml(pattern)}</option>`),
+  ].join("");
+  elements.exerciseEquipmentFilter.innerHTML = [
+    '<option value="">All equipment</option>',
+    ...equipment.map((item) => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`),
+  ].join("");
+
+  elements.exercisePatternFilter.value = patterns.includes(selectedPattern) ? selectedPattern : "";
+  elements.exerciseEquipmentFilter.value = equipment.includes(selectedEquipment) ? selectedEquipment : "";
+}
+
+function renderExerciseLibrary({ refreshFilters = false } = {}) {
+  const exercises = getExerciseLibrary();
+
+  if (refreshFilters) renderExerciseFilterOptions(exercises);
+
+  const searchText = normalizeMoveName(elements.exerciseSearch.value);
+  const pattern = elements.exercisePatternFilter.value;
+  const equipment = elements.exerciseEquipmentFilter.value;
+  const filteredExercises = exercises.filter((exercise) => {
+    const searchHaystack = normalizeMoveName(
+      `${exercise.move} ${exercise.pattern} ${exercise.equipment} ${exercise.primaryMuscles.join(" ")} ${exercise.secondaryMuscles.join(" ")}`,
+    );
+
+    return (
+      (!searchText || searchHaystack.includes(searchText)) &&
+      (!pattern || exercise.pattern === pattern) &&
+      (!equipment || exercise.equipment === equipment)
+    );
+  });
+
+  elements.exerciseCount.textContent = `${filteredExercises.length} result${filteredExercises.length === 1 ? "" : "s"}`;
+  elements.exerciseList.innerHTML = filteredExercises.length
+    ? filteredExercises.map(renderExerciseCard).join("")
+    : '<p class="empty-state">No exercises match those filters.</p>';
+}
+
+function renderExerciseCard(exercise) {
+  return `
+    <article class="exercise-card">
+      ${renderMoveArt(exercise, "exercise-card-art")}
+      <div class="exercise-card-copy">
+        <strong>${escapeHtml(exercise.move)}</strong>
+        <span>${escapeHtml(exercise.equipment)} · ${escapeHtml(exercise.difficulty)}</span>
+        <small><b>${escapeHtml(exercise.pattern)}</b>${exercise.target ? ` ${escapeHtml(exercise.target)}` : ""}</small>
+        ${exercise.cue ? `<p>${escapeHtml(exercise.cue)}</p>` : ""}
+        ${renderMuscleTags(exercise)}
+        <em>${escapeHtml(exercise.sourceWorkouts.slice(0, 2).join(", "))}</em>
+      </div>
+    </article>
   `;
 }
 
@@ -2145,6 +2275,9 @@ elements.equipmentList.addEventListener("click", (event) => {
 
   toggleEquipment(toggleButton.dataset.equipmentId);
 });
+elements.exerciseSearch.addEventListener("input", () => renderExerciseLibrary());
+elements.exercisePatternFilter.addEventListener("change", () => renderExerciseLibrary());
+elements.exerciseEquipmentFilter.addEventListener("change", () => renderExerciseLibrary());
 elements.tabButtons.forEach((button) => {
   button.addEventListener("click", () => switchTab(button.dataset.tab));
 });
@@ -2176,6 +2309,7 @@ elements.templateList.addEventListener("click", async (event) => {
 
 loadTemplates();
 renderTemplates();
+renderExerciseLibrary({ refreshFilters: true });
 renderSchedule();
 renderBuilder();
 renderEquipment();

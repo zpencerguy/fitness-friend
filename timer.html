@@ -25,7 +25,7 @@
         <button class="tab-button is-active" id="templates-tab-button" type="button" role="tab" aria-selected="true" aria-controls="templates-tab" data-tab="templates">Workouts</button>
         <button class="tab-button" id="builder-tab-button" type="button" role="tab" aria-selected="false" aria-controls="builder-tab" data-tab="builder">Builder</button>
         <button class="tab-button" id="equipment-tab-button" type="button" role="tab" aria-selected="false" aria-controls="equipment-tab" data-tab="equipment">Equipment</button>
-        <button class="tab-button" id="moves-tab-button" type="button" role="tab" aria-selected="false" aria-controls="moves-tab" data-tab="moves">Moves</button>
+        <button class="tab-button" id="moves-tab-button" type="button" role="tab" aria-selected="false" aria-controls="moves-tab" data-tab="moves">Exercises</button>
         <button class="tab-button" id="history-tab-button" type="button" role="tab" aria-selected="false" aria-controls="history-tab" data-tab="history">History</button>
       </div>
     </nav>
@@ -307,7 +307,36 @@
           </section>
 
           <section class="tab-panel" id="moves-tab" role="tabpanel" aria-labelledby="moves-tab-button" data-tab-panel="moves" hidden>
-            <div class="schedule-header">
+            <div class="exercise-header">
+              <div>
+                <p class="eyebrow">Exercise library</p>
+                <h2 id="exercise-title">Exercises</h2>
+              </div>
+              <span id="exercise-count">0 results</span>
+            </div>
+
+            <div class="exercise-controls">
+              <label>
+                Search
+                <input id="exercise-search" type="search" placeholder="Search exercises">
+              </label>
+              <label>
+                Pattern
+                <select id="exercise-pattern-filter">
+                  <option value="">All patterns</option>
+                </select>
+              </label>
+              <label>
+                Equipment
+                <select id="exercise-equipment-filter">
+                  <option value="">All equipment</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="exercise-list" id="exercise-list"></div>
+
+            <div class="schedule-header selected-workout-header">
               <div>
                 <p class="eyebrow">Selected workout</p>
                 <strong id="schedule-title">No workout selected</strong>
