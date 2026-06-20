@@ -19,6 +19,9 @@ const SOUND_ENABLED_KEY = "fitness-friend-sound-enabled";
 const FAVORITE_TEMPLATES_KEY = "fitness-friend-favorite-templates";
 const EQUIPMENT_KEY = "fitness-friend-equipment";
 const TRANSFORMATION_BASELINE_KEY = "fitness-friend-transformation-baseline";
+const API_BASE_URL_KEY = "bellforge-api-base-url";
+const API_USER_ID_KEY = "bellforge-api-user-id";
+const API_SYNC_TIMEOUT_MS = 3500;
 const MUSCLE_GROUPS = ["Chest", "Back", "Shoulders", "Arms", "Legs", "Core"];
 const DEFAULT_FAVORITE_TEMPLATE_IDS = [
   "science-muscle-full-body",
@@ -327,6 +330,160 @@ function getWorkouts() {
   );
 }
 
+function getApiConfig() {
+  const searchParams = new URLSearchParams(window.location.search);
+  const queryBaseUrl = searchParams.get("apiBaseUrl") ?? searchParams.get("api");
+  const queryUserId = searchParams.get("userId");
+
+  if (queryBaseUrl !== null) {
+    localStorage.setItem(API_BASE_URL_KEY, queryBaseUrl.trim());
+  }
+
+  if (queryUserId !== null) {
+    localStorage.setItem(API_USER_ID_KEY, queryUserId.trim());
+  }
+
+  const baseUrl = (queryBaseUrl ?? localStorage.getItem(API_BASE_URL_KEY) ?? "").trim().replace(/\/+$/, "");
+  const userId = (queryUserId ?? localStorage.getItem(API_USER_ID_KEY) ?? "web-local").trim() || "web-local";
+
+  return {
+    baseUrl,
+    userId,
+    enabled: Boolean(baseUrl),
+  };
+}
+
+async function requestApi(path, { method = "GET", body = null } = {}) {
+  const config = getApiConfig();
+  if (!config.enabled) return null;
+
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), API_SYNC_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${config.baseUrl}${path}`, {
+      method,
+      headers: {
+        "content-type": "application/json",
+        "x-user-id": config.userId,
+      },
+      body: body ? JSON.stringify(body) : null,
+      signal: controller.signal,
+    });
+
+    if (!response.ok) throw new Error(`API ${method} ${path} failed with ${response.status}`);
+    if (response.status === 204) return null;
+
+    const payload = await response.json();
+    return payload.data ?? payload;
+  } catch (error) {
+    console.warn("[BellForge API sync]", error);
+    return null;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
+function toApiTemplatePayload(template) {
+  return {
+    name: template.name,
+    description: template.description ?? "",
+    source: template.source ?? "Custom",
+    cycles: template.cycles,
+    tags: template.tags ?? [],
+    visibility: template.visibility ?? "private",
+    movements: (template.movements ?? []).map((movement) => ({
+      moveName: movement.moveName ?? movement.move,
+      target: movement.target ?? `${DEFAULT_WORK_SECONDS} sec`,
+      pattern: movement.pattern ?? "Move",
+      cue: movement.cue ?? "",
+      primaryMuscles: movement.primaryMuscles ?? [],
+      secondaryMuscles: movement.secondaryMuscles ?? [],
+    })),
+  };
+}
+
+function toApiPlanPayload(session) {
+  return {
+    plannedDate: session.date ?? session.plannedDate,
+    templateId: session.templateApiId ?? null,
+    workoutName: session.workoutName,
+    focus: session.focus,
+    plannedRounds: session.plannedRounds,
+    plannedDurationSeconds: session.plannedDurationSeconds,
+    status: session.status,
+    completedWorkoutId: session.completedWorkoutApiId ?? null,
+  };
+}
+
+function toApiCompletedWorkoutPayload(workout) {
+  const movements = getWorkoutMovementLogs(workout).length
+    ? getWorkoutMovementLogs(workout)
+    : getDistinctMovementPlan(workout.plannedMovements ?? []);
+
+  return {
+    plannedWorkoutId: workout.plannedSessionApiId ?? null,
+    templateId: workout.templateApiId ?? null,
+    name: workout.name,
+    type: workout.type ?? "EMOM",
+    rounds: workout.rounds,
+    durationSeconds: workout.durationSeconds,
+    plannedDurationSeconds: workout.plannedDurationSeconds,
+    workSecondsPerRound: workout.workSecondsPerRound ?? DEFAULT_WORK_SECONDS,
+    restSecondsPerRound: workout.restSecondsPerRound ?? DEFAULT_REST_SECONDS,
+    tags: workout.tags ?? [],
+    notes: workout.notes ?? "",
+    movements: movements.map((movement) => ({
+      moveName: movement.moveName ?? movement.move,
+      pattern: movement.pattern ?? "Move",
+      target: movement.target ?? "",
+      weightValue: movement.weightValue ?? null,
+      weightUnit: movement.weightUnit ?? "lb",
+      repsCompleted: movement.repsCompleted ?? null,
+      difficulty: movement.difficulty ?? movement.effort ?? null,
+      notes: movement.notes ?? "",
+      primaryMuscles: movement.primaryMuscles ?? [],
+      secondaryMuscles: movement.secondaryMuscles ?? [],
+    })),
+    completedAt: workout.completedAt,
+  };
+}
+
+async function syncTemplateToApi(template) {
+  const path = template.apiId ? `/v1/workout-templates/${encodeURIComponent(template.apiId)}` : "/v1/workout-templates";
+  const syncedTemplate = await requestApi(path, {
+    method: template.apiId ? "PATCH" : "POST",
+    body: toApiTemplatePayload(template),
+  });
+
+  return syncedTemplate?.id ? { ...template, apiId: syncedTemplate.id } : template;
+}
+
+async function syncPlanSessionToApi(session) {
+  const path = session.apiId ? `/v1/planned-workouts/${encodeURIComponent(session.apiId)}` : "/v1/planned-workouts";
+  const syncedSession = await requestApi(path, {
+    method: session.apiId ? "PATCH" : "POST",
+    body: toApiPlanPayload(session),
+  });
+
+  return syncedSession?.id ? { ...session, apiId: syncedSession.id } : session;
+}
+
+async function syncCompletedWorkoutToApi(workout) {
+  const path = workout.apiId ? `/v1/completed-workouts/${encodeURIComponent(workout.apiId)}` : "/v1/completed-workouts";
+  const syncedWorkout = await requestApi(path, {
+    method: workout.apiId ? "PATCH" : "POST",
+    body: toApiCompletedWorkoutPayload(workout),
+  });
+
+  return syncedWorkout?.id ? { ...workout, apiId: syncedWorkout.id } : workout;
+}
+
+async function deleteApiResource(path, apiId) {
+  if (!apiId) return;
+  await requestApi(`${path}/${encodeURIComponent(apiId)}`, { method: "DELETE" });
+}
+
 function putPlanSession(session) {
   return withNamedStore(PLAN_STORE_NAME, "readwrite", (store) => store.put(session));
 }
@@ -513,6 +670,34 @@ function saveEquipment() {
 
 function getSelectedEquipment() {
   return state.equipment.filter((equipment) => equipment.selected);
+}
+
+async function syncEquipmentToApi(equipment) {
+  const path = equipment.apiId ? `/v1/equipment/${encodeURIComponent(equipment.apiId)}` : "/v1/equipment";
+  const syncedEquipment = await requestApi(path, {
+    method: equipment.apiId ? "PATCH" : "POST",
+    body: {
+      name: equipment.name,
+      category: equipment.category,
+      detail: equipment.detail,
+      selected: equipment.selected,
+    },
+  });
+
+  return syncedEquipment?.id ? { ...equipment, apiId: syncedEquipment.id } : equipment;
+}
+
+async function persistEquipmentSync(equipmentId) {
+  const equipment = state.equipment.find((candidate) => candidate.id === equipmentId);
+  if (!equipment) return;
+
+  const syncedEquipment = await syncEquipmentToApi(equipment);
+
+  if (syncedEquipment.apiId !== equipment.apiId) {
+    state.equipment = state.equipment.map((candidate) => (candidate.id === equipmentId ? syncedEquipment : candidate));
+    saveEquipment();
+    renderEquipment();
+  }
 }
 
 function loadSoundPreference() {
@@ -884,6 +1069,7 @@ async function completeWorkout() {
     restSecondsPerRound: restSeconds,
     equipment,
     templateId: state.selectedTemplate?.id ?? null,
+    templateApiId: state.selectedTemplate?.apiId ?? null,
     templateName: state.selectedTemplate?.name ?? null,
     plannedSessionId: state.activePlanSessionId,
     plannedMovements: state.activePlan,
@@ -891,19 +1077,27 @@ async function completeWorkout() {
     type: "EMOM",
   };
   const completedWorkoutId = await addWorkout(completedWorkout);
-  const loggedWorkout = { ...completedWorkout, id: completedWorkoutId };
+  let loggedWorkout = { ...completedWorkout, id: completedWorkoutId };
+  loggedWorkout = await syncCompletedWorkoutToApi(loggedWorkout);
+
+  if (loggedWorkout.apiId) {
+    await putWorkout(loggedWorkout);
+  }
 
   if (state.activePlanSessionId) {
     const sessions = await getPlanSessions();
     const session = sessions.find((candidate) => candidate.id === state.activePlanSessionId);
 
     if (session) {
-      await putPlanSession({
+      const updatedSession = {
         ...session,
         status: "completed",
         completedWorkoutId,
+        completedWorkoutApiId: loggedWorkout.apiId ?? null,
         updatedAt: new Date().toISOString(),
-      });
+      };
+
+      await putPlanSession(await syncPlanSessionToApi(updatedSession));
     }
 
     state.activePlanSessionId = null;
@@ -1146,6 +1340,7 @@ async function deleteTemplate(templateId) {
 
   saveCustomTemplates(customTemplates);
   saveDeletedTemplateIds(deletedTemplateIds);
+  await deleteApiResource("/v1/workout-templates", template?.apiId);
 
   if (state.favoriteTemplateIds.delete(templateId)) {
     saveFavoriteTemplateIds();
@@ -1232,7 +1427,7 @@ function removeBuilderMove(index) {
   renderBuilder();
 }
 
-function saveBuilderTemplate() {
+async function saveBuilderTemplate() {
   const name = elements.builderName.value.trim();
   const cycles = normalizeRounds(elements.builderCycles.value);
   const tags = elements.builderTags.value
@@ -1251,8 +1446,12 @@ function saveBuilderTemplate() {
   }
 
   const customTemplates = loadCustomTemplates();
+  const existingTemplate = state.builderEditingId
+    ? customTemplates.find((candidate) => candidate.id === state.builderEditingId)
+    : null;
   const template = {
     id: state.builderEditingId ?? `custom-${Date.now()}`,
+    apiId: existingTemplate?.apiId ?? null,
     name,
     source: "Custom",
     tags,
@@ -1260,14 +1459,19 @@ function saveBuilderTemplate() {
     movements: state.builderMoves.map((movement) => ({ ...movement })),
     isCustom: true,
   };
+  const syncedTemplate = await syncTemplateToApi(template);
   const nextTemplates = state.builderEditingId
     ? customTemplates.map((candidate) => (candidate.id === state.builderEditingId ? template : candidate))
-    : [...customTemplates, template];
+    : [...customTemplates, syncedTemplate];
 
-  saveCustomTemplates(nextTemplates);
+  saveCustomTemplates(
+    state.builderEditingId
+      ? customTemplates.map((candidate) => (candidate.id === state.builderEditingId ? syncedTemplate : candidate))
+      : nextTemplates,
+  );
   loadTemplates();
-  selectTemplate(template.id);
-  state.builderEditingId = template.id;
+  selectTemplate(syncedTemplate.id);
+  state.builderEditingId = syncedTemplate.id;
   state.builderEditingMoveIndex = null;
   elements.addMoveButton.textContent = "Add Move";
   renderExerciseLibrary({ refreshFilters: true });
@@ -1437,10 +1641,12 @@ async function savePlanFromForm() {
   const plan = expandTemplate(template);
   const now = new Date().toISOString();
 
-  await putPlanSession({
+  const session = {
     id: existingSession?.id ?? `plan-${elements.plannerDate.value}-${Date.now()}`,
+    apiId: existingSession?.apiId ?? null,
     date: elements.plannerDate.value,
     templateId: template.id,
+    templateApiId: template.apiId ?? null,
     workoutName: template.name,
     focus: elements.plannerFocus.value,
     equipment: getSelectedEquipment().map(({ id, name, category }) => ({ id, name, category })),
@@ -1448,9 +1654,13 @@ async function savePlanFromForm() {
     plannedDurationSeconds: getPlannedDurationSeconds(plan.length, DEFAULT_REST_SECONDS),
     status: "planned",
     completedWorkoutId: existingSession?.completedWorkoutId ?? null,
+    completedWorkoutApiId: existingSession?.completedWorkoutApiId ?? null,
     createdAt: existingSession?.createdAt ?? now,
     updatedAt: now,
-  });
+  };
+  const syncedSession = await syncPlanSessionToApi(session);
+
+  await putPlanSession(syncedSession);
 
   await renderPlanner();
 }
@@ -1471,16 +1681,22 @@ async function skipPlanSession(sessionId) {
   const session = sessions.find((candidate) => candidate.id === sessionId);
   if (!session) return;
 
-  await putPlanSession({
+  const updatedSession = {
     ...session,
     status: "skipped",
     updatedAt: new Date().toISOString(),
-  });
+  };
+
+  await putPlanSession(await syncPlanSessionToApi(updatedSession));
   await renderPlanner();
 }
 
 async function clearPlanSession(sessionId) {
+  const sessions = await getPlanSessions();
+  const session = sessions.find((candidate) => candidate.id === sessionId);
+
   await deletePlanSession(sessionId);
+  await deleteApiResource("/v1/planned-workouts", session?.apiId);
   await renderPlanner();
 }
 
@@ -1554,7 +1770,7 @@ function getHeatLabel({ effectiveStatus, completedWorkouts }) {
   return "no workout";
 }
 
-function addEquipment() {
+async function addEquipment() {
   const name = elements.equipmentName.value.trim();
 
   if (!name) {
@@ -1562,35 +1778,39 @@ function addEquipment() {
     return;
   }
 
-  state.equipment.push(
-    sanitizeEquipment({
-      id: `custom-gear-${Date.now()}`,
-      name,
-      category: elements.equipmentCategory.value,
-      detail: elements.equipmentDetail.value,
-      selected: true,
-      isPreset: false,
-    }),
-  );
+  const equipment = sanitizeEquipment({
+    id: `custom-gear-${Date.now()}`,
+    name,
+    category: elements.equipmentCategory.value,
+    detail: elements.equipmentDetail.value,
+    selected: true,
+    isPreset: false,
+  });
+
+  state.equipment.push(equipment);
   elements.equipmentName.value = "";
   elements.equipmentDetail.value = "";
   elements.equipmentName.focus();
   saveEquipment();
   renderEquipment();
+  await persistEquipmentSync(equipment.id);
 }
 
-function toggleEquipment(equipmentId) {
+async function toggleEquipment(equipmentId) {
   state.equipment = state.equipment.map((equipment) =>
     equipment.id === equipmentId ? { ...equipment, selected: !equipment.selected } : equipment,
   );
   saveEquipment();
   renderEquipment();
+  await persistEquipmentSync(equipmentId);
 }
 
-function deleteEquipment(equipmentId) {
+async function deleteEquipment(equipmentId) {
+  const equipment = state.equipment.find((candidate) => candidate.id === equipmentId);
   state.equipment = state.equipment.filter((equipment) => equipment.id !== equipmentId || equipment.isPreset);
   saveEquipment();
   renderEquipment();
+  await deleteApiResource("/v1/equipment", equipment?.apiId);
 }
 
 function renderSchedule() {
@@ -1989,7 +2209,9 @@ async function saveMovementLog() {
     notes: elements.completionNotes.value.trim(),
   };
 
-  await putWorkout(updatedWorkout);
+  const syncedWorkout = await syncCompletedWorkoutToApi(updatedWorkout);
+
+  await putWorkout(syncedWorkout);
   hideCompletionLog();
   await renderHistory();
   await renderPlanner();
@@ -2021,20 +2243,27 @@ async function deleteCompletedWorkout(workoutId) {
   const numericWorkoutId = Number(workoutId);
   if (!Number.isFinite(numericWorkoutId)) return;
 
+  const workouts = await getWorkouts();
+  const workout = workouts.find((candidate) => String(candidate.id) === String(workoutId));
+
   await deleteWorkout(numericWorkoutId);
+  await deleteApiResource("/v1/completed-workouts", workout?.apiId);
 
   const sessions = await getPlanSessions();
   await Promise.all(
     sessions
       .filter((session) => String(session.completedWorkoutId) === String(workoutId))
-      .map((session) =>
-        putPlanSession({
+      .map(async (session) => {
+        const updatedSession = {
           ...session,
           status: "planned",
           completedWorkoutId: null,
+          completedWorkoutApiId: null,
           updatedAt: new Date().toISOString(),
-        }),
-      ),
+        };
+
+        await putPlanSession(await syncPlanSessionToApi(updatedSession));
+      }),
   );
 
   await renderHistory();

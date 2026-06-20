@@ -151,10 +151,34 @@ curl http://localhost:8080/health
 curl http://localhost:8080/v1/equipment -H "x-user-id: dev-user"
 ```
 
-After that:
+## Web App API Sync
+
+The web app now has an opt-in API mirror. Browser-local IndexedDB/localStorage
+remain the default source of truth, but writes can be mirrored to the API for
+shared web/iOS development.
+
+Enable it by opening:
+
+```text
+http://localhost:4173/timer.html?apiBaseUrl=http://localhost:8080&userId=dev-user
+```
+
+The app stores those values in localStorage keys:
+
+- `bellforge-api-base-url`
+- `bellforge-api-user-id`
+
+Current mirrored writes:
+
+- Equipment create/update/delete
+- Custom workout create/update/delete
+- Planned workout create/update/delete
+- Completed workout create/update/delete
+- Post-workout movement log updates
+
+Next steps:
 
 1. Add real auth provider validation.
-2. Add a web API client.
-3. Migrate browser-local equipment/templates/history into backend records after login.
-4. Add planned workout endpoints.
-5. Add progress endpoints.
+2. Add backend reads/hydration after login.
+3. Add one-time browser-local migration into backend records.
+4. Add progress/recovery endpoints for coach features.
