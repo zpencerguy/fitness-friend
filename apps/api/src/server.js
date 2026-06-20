@@ -37,6 +37,46 @@ export function createApiServer({ repository = createMemoryRepository() } = {}) 
         return;
       }
 
+      const equipmentMatch = url.pathname.match(/^\/v1\/equipment\/([^/]+)$/);
+
+      if (equipmentMatch && isUpdateMethod(request.method)) {
+        const payload = await readJson(request);
+        sendJson(response, 200, { data: await repository.updateEquipment(userId, equipmentMatch[1], payload) });
+        return;
+      }
+
+      if (equipmentMatch && request.method === "DELETE") {
+        await repository.deleteEquipment(userId, equipmentMatch[1]);
+        sendEmpty(response, 204);
+        return;
+      }
+
+      if (request.method === "GET" && url.pathname === "/v1/moves") {
+        sendJson(response, 200, { data: await repository.listMoves(userId) });
+        return;
+      }
+
+      if (request.method === "POST" && url.pathname === "/v1/moves") {
+        const payload = await readJson(request);
+        requireFields(payload, ["name"]);
+        sendJson(response, 201, { data: await repository.createMove(userId, payload) });
+        return;
+      }
+
+      const moveMatch = url.pathname.match(/^\/v1\/moves\/([^/]+)$/);
+
+      if (moveMatch && isUpdateMethod(request.method)) {
+        const payload = await readJson(request);
+        sendJson(response, 200, { data: await repository.updateMove(userId, moveMatch[1], payload) });
+        return;
+      }
+
+      if (moveMatch && request.method === "DELETE") {
+        await repository.deleteMove(userId, moveMatch[1]);
+        sendEmpty(response, 204);
+        return;
+      }
+
       if (request.method === "GET" && url.pathname === "/v1/workout-templates") {
         sendJson(response, 200, { data: await repository.listWorkoutTemplates(userId) });
         return;
@@ -49,6 +89,48 @@ export function createApiServer({ repository = createMemoryRepository() } = {}) 
         return;
       }
 
+      const templateMatch = url.pathname.match(/^\/v1\/workout-templates\/([^/]+)$/);
+
+      if (templateMatch && isUpdateMethod(request.method)) {
+        const payload = await readJson(request);
+        sendJson(response, 200, { data: await repository.updateWorkoutTemplate(userId, templateMatch[1], payload) });
+        return;
+      }
+
+      if (templateMatch && request.method === "DELETE") {
+        await repository.deleteWorkoutTemplate(userId, templateMatch[1]);
+        sendEmpty(response, 204);
+        return;
+      }
+
+      if (request.method === "GET" && url.pathname === "/v1/planned-workouts") {
+        sendJson(response, 200, { data: await repository.listPlannedWorkouts(userId) });
+        return;
+      }
+
+      if (request.method === "POST" && url.pathname === "/v1/planned-workouts") {
+        const payload = await readJson(request);
+        requireFields(payload, ["plannedDate", "workoutName", "plannedDurationSeconds"]);
+        sendJson(response, 201, { data: await repository.createPlannedWorkout(userId, payload) });
+        return;
+      }
+
+      const plannedWorkoutMatch = url.pathname.match(/^\/v1\/planned-workouts\/([^/]+)$/);
+
+      if (plannedWorkoutMatch && isUpdateMethod(request.method)) {
+        const payload = await readJson(request);
+        sendJson(response, 200, {
+          data: await repository.updatePlannedWorkout(userId, plannedWorkoutMatch[1], payload),
+        });
+        return;
+      }
+
+      if (plannedWorkoutMatch && request.method === "DELETE") {
+        await repository.deletePlannedWorkout(userId, plannedWorkoutMatch[1]);
+        sendEmpty(response, 204);
+        return;
+      }
+
       if (request.method === "GET" && url.pathname === "/v1/completed-workouts") {
         sendJson(response, 200, { data: await repository.listCompletedWorkouts(userId) });
         return;
@@ -58,6 +140,48 @@ export function createApiServer({ repository = createMemoryRepository() } = {}) 
         const payload = await readJson(request);
         requireFields(payload, ["name", "rounds", "durationSeconds", "plannedDurationSeconds"]);
         sendJson(response, 201, { data: await repository.createCompletedWorkout(userId, payload) });
+        return;
+      }
+
+      const completedWorkoutMatch = url.pathname.match(/^\/v1\/completed-workouts\/([^/]+)$/);
+
+      if (completedWorkoutMatch && isUpdateMethod(request.method)) {
+        const payload = await readJson(request);
+        sendJson(response, 200, {
+          data: await repository.updateCompletedWorkout(userId, completedWorkoutMatch[1], payload),
+        });
+        return;
+      }
+
+      if (completedWorkoutMatch && request.method === "DELETE") {
+        await repository.deleteCompletedWorkout(userId, completedWorkoutMatch[1]);
+        sendEmpty(response, 204);
+        return;
+      }
+
+      if (request.method === "GET" && url.pathname === "/v1/programs") {
+        sendJson(response, 200, { data: await repository.listPrograms(userId) });
+        return;
+      }
+
+      if (request.method === "POST" && url.pathname === "/v1/programs") {
+        const payload = await readJson(request);
+        requireFields(payload, ["name"]);
+        sendJson(response, 201, { data: await repository.createProgram(userId, payload) });
+        return;
+      }
+
+      const programMatch = url.pathname.match(/^\/v1\/programs\/([^/]+)$/);
+
+      if (programMatch && isUpdateMethod(request.method)) {
+        const payload = await readJson(request);
+        sendJson(response, 200, { data: await repository.updateProgram(userId, programMatch[1], payload) });
+        return;
+      }
+
+      if (programMatch && request.method === "DELETE") {
+        await repository.deleteProgram(userId, programMatch[1]);
+        sendEmpty(response, 204);
         return;
       }
 
@@ -109,6 +233,41 @@ export async function handleApiRequest({
     return { statusCode: 201, body: { data: await repository.createEquipment(userId, payload) } };
   }
 
+  const equipmentMatch = path.match(/^\/v1\/equipment\/([^/]+)$/);
+
+  if (equipmentMatch && isUpdateMethod(method)) {
+    return {
+      statusCode: 200,
+      body: { data: await repository.updateEquipment(userId, equipmentMatch[1], parseJsonText(body)) },
+    };
+  }
+
+  if (equipmentMatch && method === "DELETE") {
+    await repository.deleteEquipment(userId, equipmentMatch[1]);
+    return { statusCode: 204, body: null };
+  }
+
+  if (method === "GET" && path === "/v1/moves") {
+    return { statusCode: 200, body: { data: await repository.listMoves(userId) } };
+  }
+
+  if (method === "POST" && path === "/v1/moves") {
+    const payload = parseJsonText(body);
+    requireFields(payload, ["name"]);
+    return { statusCode: 201, body: { data: await repository.createMove(userId, payload) } };
+  }
+
+  const moveMatch = path.match(/^\/v1\/moves\/([^/]+)$/);
+
+  if (moveMatch && isUpdateMethod(method)) {
+    return { statusCode: 200, body: { data: await repository.updateMove(userId, moveMatch[1], parseJsonText(body)) } };
+  }
+
+  if (moveMatch && method === "DELETE") {
+    await repository.deleteMove(userId, moveMatch[1]);
+    return { statusCode: 204, body: null };
+  }
+
   if (method === "GET" && path === "/v1/workout-templates") {
     return { statusCode: 200, body: { data: await repository.listWorkoutTemplates(userId) } };
   }
@@ -117,6 +276,44 @@ export async function handleApiRequest({
     const payload = parseJsonText(body);
     requireFields(payload, ["name"]);
     return { statusCode: 201, body: { data: await repository.createWorkoutTemplate(userId, payload) } };
+  }
+
+  const templateMatch = path.match(/^\/v1\/workout-templates\/([^/]+)$/);
+
+  if (templateMatch && isUpdateMethod(method)) {
+    return {
+      statusCode: 200,
+      body: { data: await repository.updateWorkoutTemplate(userId, templateMatch[1], parseJsonText(body)) },
+    };
+  }
+
+  if (templateMatch && method === "DELETE") {
+    await repository.deleteWorkoutTemplate(userId, templateMatch[1]);
+    return { statusCode: 204, body: null };
+  }
+
+  if (method === "GET" && path === "/v1/planned-workouts") {
+    return { statusCode: 200, body: { data: await repository.listPlannedWorkouts(userId) } };
+  }
+
+  if (method === "POST" && path === "/v1/planned-workouts") {
+    const payload = parseJsonText(body);
+    requireFields(payload, ["plannedDate", "workoutName", "plannedDurationSeconds"]);
+    return { statusCode: 201, body: { data: await repository.createPlannedWorkout(userId, payload) } };
+  }
+
+  const plannedWorkoutMatch = path.match(/^\/v1\/planned-workouts\/([^/]+)$/);
+
+  if (plannedWorkoutMatch && isUpdateMethod(method)) {
+    return {
+      statusCode: 200,
+      body: { data: await repository.updatePlannedWorkout(userId, plannedWorkoutMatch[1], parseJsonText(body)) },
+    };
+  }
+
+  if (plannedWorkoutMatch && method === "DELETE") {
+    await repository.deletePlannedWorkout(userId, plannedWorkoutMatch[1]);
+    return { statusCode: 204, body: null };
   }
 
   if (method === "GET" && path === "/v1/completed-workouts") {
@@ -129,6 +326,41 @@ export async function handleApiRequest({
     return { statusCode: 201, body: { data: await repository.createCompletedWorkout(userId, payload) } };
   }
 
+  const completedWorkoutMatch = path.match(/^\/v1\/completed-workouts\/([^/]+)$/);
+
+  if (completedWorkoutMatch && isUpdateMethod(method)) {
+    return {
+      statusCode: 200,
+      body: { data: await repository.updateCompletedWorkout(userId, completedWorkoutMatch[1], parseJsonText(body)) },
+    };
+  }
+
+  if (completedWorkoutMatch && method === "DELETE") {
+    await repository.deleteCompletedWorkout(userId, completedWorkoutMatch[1]);
+    return { statusCode: 204, body: null };
+  }
+
+  if (method === "GET" && path === "/v1/programs") {
+    return { statusCode: 200, body: { data: await repository.listPrograms(userId) } };
+  }
+
+  if (method === "POST" && path === "/v1/programs") {
+    const payload = parseJsonText(body);
+    requireFields(payload, ["name"]);
+    return { statusCode: 201, body: { data: await repository.createProgram(userId, payload) } };
+  }
+
+  const programMatch = path.match(/^\/v1\/programs\/([^/]+)$/);
+
+  if (programMatch && isUpdateMethod(method)) {
+    return { statusCode: 200, body: { data: await repository.updateProgram(userId, programMatch[1], parseJsonText(body)) } };
+  }
+
+  if (programMatch && method === "DELETE") {
+    await repository.deleteProgram(userId, programMatch[1]);
+    return { statusCode: 204, body: null };
+  }
+
   return {
     statusCode: 404,
     body: {
@@ -138,6 +370,10 @@ export async function handleApiRequest({
       },
     },
   };
+}
+
+function isUpdateMethod(method) {
+  return method === "PUT" || method === "PATCH";
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

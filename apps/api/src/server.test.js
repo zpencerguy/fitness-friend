@@ -42,6 +42,34 @@ test("equipment can be created and listed per user", async () => {
   assert.equal(listResponse.statusCode, 200);
   assert.equal(listResponse.body.data.length, 1);
   assert.equal(listResponse.body.data[0].detail, "35 lb");
+
+  const updateResponse = await handleApiRequest({
+    repository,
+    method: "PATCH",
+    path: `/v1/equipment/${createResponse.body.data.id}`,
+    headers: {
+      "x-user-id": "user-a",
+    },
+    body: JSON.stringify({
+      detail: "44 lb",
+      selected: false,
+    }),
+  });
+
+  assert.equal(updateResponse.statusCode, 200);
+  assert.equal(updateResponse.body.data.detail, "44 lb");
+  assert.equal(updateResponse.body.data.selected, false);
+
+  const deleteResponse = await handleApiRequest({
+    repository,
+    method: "DELETE",
+    path: `/v1/equipment/${createResponse.body.data.id}`,
+    headers: {
+      "x-user-id": "user-a",
+    },
+  });
+
+  assert.equal(deleteResponse.statusCode, 204);
 });
 
 test("completed workouts can include movement-level logs", async () => {
@@ -75,6 +103,177 @@ test("completed workouts can include movement-level logs", async () => {
   assert.equal(response.statusCode, 201);
   assert.equal(response.body.data.movements.length, 1);
   assert.equal(response.body.data.movements[0].weightValue, 35);
+
+  const updateResponse = await handleApiRequest({
+    repository,
+    method: "PATCH",
+    path: `/v1/completed-workouts/${response.body.data.id}`,
+    headers: {
+      "x-user-id": "user-a",
+    },
+    body: JSON.stringify({
+      notes: "Felt strong.",
+      movements: [
+        {
+          moveName: "Goblet Squat",
+          target: "8-12 reps",
+          pattern: "Squat",
+          weightValue: 40,
+          repsCompleted: 8,
+          difficulty: 8,
+        },
+      ],
+    }),
+  });
+
+  assert.equal(updateResponse.statusCode, 200);
+  assert.equal(updateResponse.body.data.notes, "Felt strong.");
+  assert.equal(updateResponse.body.data.movements[0].weightValue, 40);
+});
+
+test("moves support CRUD for exercise library foundation", async () => {
+  const repository = createMemoryRepository();
+  const createResponse = await handleApiRequest({
+    repository,
+    method: "POST",
+    path: "/v1/moves",
+    headers: {
+      "x-user-id": "user-a",
+    },
+    body: JSON.stringify({
+      name: "Kettlebell Swing",
+      pattern: "Hinge",
+      equipmentCategory: "Kettlebell",
+      primaryMuscles: ["Gluteus maximus", "Hamstrings"],
+    }),
+  });
+
+  assert.equal(createResponse.statusCode, 201);
+  assert.equal(createResponse.body.data.name, "Kettlebell Swing");
+
+  const updateResponse = await handleApiRequest({
+    repository,
+    method: "PATCH",
+    path: `/v1/moves/${createResponse.body.data.id}`,
+    headers: {
+      "x-user-id": "user-a",
+    },
+    body: JSON.stringify({
+      difficulty: "intermediate",
+    }),
+  });
+
+  assert.equal(updateResponse.statusCode, 200);
+  assert.equal(updateResponse.body.data.difficulty, "intermediate");
+
+  const deleteResponse = await handleApiRequest({
+    repository,
+    method: "DELETE",
+    path: `/v1/moves/${createResponse.body.data.id}`,
+    headers: {
+      "x-user-id": "user-a",
+    },
+  });
+
+  assert.equal(deleteResponse.statusCode, 204);
+});
+
+test("templates, planned workouts, and programs expose CRUD routes", async () => {
+  const repository = createMemoryRepository();
+  const templateResponse = await handleApiRequest({
+    repository,
+    method: "POST",
+    path: "/v1/workout-templates",
+    headers: {
+      "x-user-id": "user-a",
+    },
+    body: JSON.stringify({
+      name: "Upper Body EMOM",
+      cycles: 3,
+      movements: [{ moveName: "Floor Press", target: "8 reps", pattern: "Push" }],
+    }),
+  });
+
+  assert.equal(templateResponse.statusCode, 201);
+
+  const templateUpdate = await handleApiRequest({
+    repository,
+    method: "PATCH",
+    path: `/v1/workout-templates/${templateResponse.body.data.id}`,
+    headers: {
+      "x-user-id": "user-a",
+    },
+    body: JSON.stringify({
+      cycles: 4,
+    }),
+  });
+
+  assert.equal(templateUpdate.statusCode, 200);
+  assert.equal(templateUpdate.body.data.cycles, 4);
+
+  const planResponse = await handleApiRequest({
+    repository,
+    method: "POST",
+    path: "/v1/planned-workouts",
+    headers: {
+      "x-user-id": "user-a",
+    },
+    body: JSON.stringify({
+      plannedDate: "2026-06-20",
+      templateId: templateResponse.body.data.id,
+      workoutName: "Upper Body EMOM",
+      focus: "Upper body",
+      plannedRounds: 8,
+      plannedDurationSeconds: 480,
+    }),
+  });
+
+  assert.equal(planResponse.statusCode, 201);
+  assert.equal(planResponse.body.data.status, "planned");
+
+  const planUpdate = await handleApiRequest({
+    repository,
+    method: "PATCH",
+    path: `/v1/planned-workouts/${planResponse.body.data.id}`,
+    headers: {
+      "x-user-id": "user-a",
+    },
+    body: JSON.stringify({
+      status: "skipped",
+    }),
+  });
+
+  assert.equal(planUpdate.statusCode, 200);
+  assert.equal(planUpdate.body.data.status, "skipped");
+
+  const programResponse = await handleApiRequest({
+    repository,
+    method: "POST",
+    path: "/v1/programs",
+    headers: {
+      "x-user-id": "user-a",
+    },
+    body: JSON.stringify({
+      name: "Intro to Home Muscle",
+      durationWeeks: 8,
+      weeklyWorkouts: 4,
+      days: [{ weekNumber: 1, dayNumber: 1, workoutName: "Full Body Starter", focus: "Full body" }],
+    }),
+  });
+
+  assert.equal(programResponse.statusCode, 201);
+  assert.equal(programResponse.body.data.days.length, 1);
+
+  const programDelete = await handleApiRequest({
+    repository,
+    method: "DELETE",
+    path: `/v1/programs/${programResponse.body.data.id}`,
+    headers: {
+      "x-user-id": "user-a",
+    },
+  });
+
+  assert.equal(programDelete.statusCode, 204);
 });
 
 test("server uses memory repository when no database URL is configured", async () => {

@@ -48,7 +48,7 @@ export function sendEmpty(response, statusCode = 204) {
 export function corsHeaders() {
   return {
     "access-control-allow-origin": "*",
-    "access-control-allow-methods": "GET,POST,OPTIONS",
+    "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
     "access-control-allow-headers": "authorization,content-type,x-user-id",
   };
 }
