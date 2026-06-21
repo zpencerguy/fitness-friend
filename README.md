@@ -86,8 +86,9 @@ otherwise it uses the in-memory repository for local prototyping and tests.
 
 See `docs/backend-phase-1.md` for the current backend architecture notes.
 
-The web app can optionally mirror writes to the API while keeping browser-local
-storage as the default fallback. Start the API, then open the timer with:
+The web app can optionally hydrate from and mirror writes to the API while
+keeping browser-local storage as the default fallback. Start the API, then open
+the timer with:
 
 ```text
 http://localhost:4173/timer.html?apiBaseUrl=http://localhost:8080&userId=dev-user

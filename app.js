@@ -484,6 +484,173 @@ async function deleteApiResource(path, apiId) {
   await requestApi(`${path}/${encodeURIComponent(apiId)}`, { method: "DELETE" });
 }
 
+async function hydrateFromApi() {
+  if (!getApiConfig().enabled) return;
+
+  const [apiEquipment, apiTemplates, apiCompletedWorkouts] = await Promise.all([
+    requestApi("/v1/equipment"),
+    requestApi("/v1/workout-templates"),
+    requestApi("/v1/completed-workouts"),
+  ]);
+
+  hydrateEquipmentFromApi(apiEquipment ?? []);
+  hydrateTemplatesFromApi(apiTemplates ?? []);
+  await hydrateCompletedWorkoutsFromApi(apiCompletedWorkouts ?? []);
+
+  loadTemplates();
+
+  const apiPlanSessions = await requestApi("/v1/planned-workouts");
+  await hydratePlanSessionsFromApi(apiPlanSessions ?? []);
+}
+
+function hydrateEquipmentFromApi(apiEquipment) {
+  if (!apiEquipment.length) return;
+
+  state.equipment = apiEquipment.reduce((equipmentList, item) => {
+    const existingIndex = equipmentList.findIndex(
+      (equipment) =>
+        equipment.apiId === item.id ||
+        normalizeMoveName(equipment.name) === normalizeMoveName(item.name),
+    );
+    const existing = existingIndex >= 0 ? equipmentList[existingIndex] : null;
+    const nextEquipment = sanitizeEquipment({
+      id: existing?.id ?? `api-gear-${item.id}`,
+      apiId: item.id,
+      name: item.name,
+      category: item.category,
+      detail: item.detail,
+      selected: item.selected ?? true,
+      isPreset: existing?.isPreset ?? false,
+    });
+
+    if (existingIndex >= 0) {
+      equipmentList[existingIndex] = nextEquipment;
+      return equipmentList;
+    }
+
+    return [...equipmentList, nextEquipment];
+  }, [...state.equipment]);
+
+  saveEquipment();
+}
+
+function hydrateTemplatesFromApi(apiTemplates) {
+  if (!apiTemplates.length) return;
+
+  const customTemplates = loadCustomTemplates();
+  const nextTemplates = apiTemplates.reduce((templates, item) => {
+    const existingIndex = templates.findIndex(
+      (template) =>
+        template.apiId === item.id ||
+        normalizeMoveName(template.name) === normalizeMoveName(item.name),
+    );
+    const existing = existingIndex >= 0 ? templates[existingIndex] : null;
+    const nextTemplate = {
+      id: existing?.id ?? `api-template-${item.id}`,
+      apiId: item.id,
+      name: item.name,
+      description: item.description ?? "",
+      source: item.source ?? "API",
+      tags: item.tags ?? [],
+      cycles: item.cycles ?? 1,
+      visibility: item.visibility ?? "private",
+      movements: (item.movements ?? []).map((movement) => ({
+        move: movement.moveName ?? movement.move,
+        target: movement.target ?? `${DEFAULT_WORK_SECONDS} sec`,
+        pattern: movement.pattern ?? "Move",
+        cue: movement.cue ?? "",
+        primaryMuscles: movement.primaryMuscles ?? [],
+        secondaryMuscles: movement.secondaryMuscles ?? [],
+      })),
+      isCustom: true,
+    };
+
+    if (existingIndex >= 0) {
+      templates[existingIndex] = nextTemplate;
+      return templates;
+    }
+
+    return [...templates, nextTemplate];
+  }, customTemplates);
+
+  saveCustomTemplates(nextTemplates);
+}
+
+async function hydrateCompletedWorkoutsFromApi(apiWorkouts) {
+  if (!apiWorkouts.length) return;
+
+  const localWorkouts = await getWorkouts();
+
+  await Promise.all(
+    apiWorkouts.map((workout) => {
+      const existingWorkout = localWorkouts.find((candidate) => candidate.apiId === workout.id);
+      const hydratedWorkout = {
+        ...(existingWorkout ? { id: existingWorkout.id } : {}),
+        apiId: workout.id,
+        name: workout.name,
+        type: workout.type ?? "EMOM",
+        rounds: workout.rounds,
+        tags: workout.tags ?? [],
+        completedAt: workout.completedAt,
+        durationSeconds: workout.durationSeconds,
+        plannedDurationSeconds: workout.plannedDurationSeconds,
+        workSecondsPerRound: workout.workSecondsPerRound ?? DEFAULT_WORK_SECONDS,
+        restSecondsPerRound: workout.restSecondsPerRound ?? DEFAULT_REST_SECONDS,
+        templateApiId: workout.templateId ?? null,
+        plannedSessionApiId: workout.plannedWorkoutId ?? null,
+        notes: workout.notes ?? "",
+        movementLogs: (workout.movements ?? []).map((movement) => ({
+          move: movement.moveName ?? movement.move,
+          target: movement.target ?? "",
+          pattern: movement.pattern ?? "Move",
+          weightValue: movement.weightValue ?? null,
+          weightUnit: movement.weightUnit ?? "lb",
+          repsCompleted: movement.repsCompleted ?? null,
+          effort: movement.difficulty ?? null,
+          notes: movement.notes ?? "",
+          primaryMuscles: movement.primaryMuscles ?? [],
+          secondaryMuscles: movement.secondaryMuscles ?? [],
+          recommendation: "Repeat and improve one number next time.",
+        })),
+      };
+
+      return putWorkout(hydratedWorkout);
+    }),
+  );
+}
+
+async function hydratePlanSessionsFromApi(apiPlanSessions) {
+  if (!apiPlanSessions.length) return;
+
+  const [localSessions, localWorkouts] = await Promise.all([getPlanSessions(), getWorkouts()]);
+
+  await Promise.all(
+    apiPlanSessions.map((session) => {
+      const existingSession = localSessions.find((candidate) => candidate.apiId === session.id);
+      const matchingTemplate = state.templates.find((template) => template.apiId === session.templateId);
+      const matchingWorkout = localWorkouts.find((workout) => workout.apiId === session.completedWorkoutId);
+      const hydratedSession = {
+        id: existingSession?.id ?? `api-plan-${session.id}`,
+        apiId: session.id,
+        date: session.plannedDate,
+        templateId: existingSession?.templateId ?? matchingTemplate?.id ?? session.templateId ?? "",
+        templateApiId: session.templateId ?? null,
+        workoutName: session.workoutName,
+        focus: session.focus,
+        plannedRounds: session.plannedRounds,
+        plannedDurationSeconds: session.plannedDurationSeconds,
+        status: session.status,
+        completedWorkoutId: matchingWorkout?.id ?? null,
+        completedWorkoutApiId: session.completedWorkoutId ?? null,
+        createdAt: existingSession?.createdAt ?? session.createdAt ?? new Date().toISOString(),
+        updatedAt: session.updatedAt ?? new Date().toISOString(),
+      };
+
+      return putPlanSession(hydratedSession);
+    }),
+  );
+}
+
 function putPlanSession(session) {
   return withNamedStore(PLAN_STORE_NAME, "readwrite", (store) => store.put(session));
 }
@@ -656,6 +823,7 @@ function loadEquipment() {
 function sanitizeEquipment(equipment) {
   return {
     id: String(equipment.id ?? `gear-${Date.now()}`),
+    apiId: equipment.apiId ? String(equipment.apiId) : null,
     name: String(equipment.name ?? "").trim(),
     category: String(equipment.category ?? "Accessory").trim() || "Accessory",
     detail: String(equipment.detail ?? "").trim(),
@@ -2241,12 +2409,12 @@ async function editCompletedWorkout(workoutId) {
 
 async function deleteCompletedWorkout(workoutId) {
   const numericWorkoutId = Number(workoutId);
-  if (!Number.isFinite(numericWorkoutId)) return;
+  const localWorkoutId = Number.isFinite(numericWorkoutId) ? numericWorkoutId : workoutId;
 
   const workouts = await getWorkouts();
   const workout = workouts.find((candidate) => String(candidate.id) === String(workoutId));
 
-  await deleteWorkout(numericWorkoutId);
+  await deleteWorkout(localWorkoutId);
   await deleteApiResource("/v1/completed-workouts", workout?.apiId);
 
   const sessions = await getPlanSessions();
@@ -2536,15 +2704,20 @@ elements.templateList.addEventListener("click", async (event) => {
   selectTemplate(button.dataset.templateId);
 });
 
-loadTemplates();
-renderTemplates();
-renderExerciseLibrary({ refreshFilters: true });
-renderSchedule();
-renderBuilder();
-renderEquipment();
-renderPlanner();
-setStatus("ready");
-updateSoundButton();
-updateDisplay();
-renderHistory();
-renderProgress();
+async function initializeApp() {
+  await hydrateFromApi();
+  loadTemplates();
+  renderTemplates();
+  renderExerciseLibrary({ refreshFilters: true });
+  renderSchedule();
+  renderBuilder();
+  renderEquipment();
+  renderPlanner();
+  setStatus("ready");
+  updateSoundButton();
+  updateDisplay();
+  renderHistory();
+  renderProgress();
+}
+
+initializeApp();

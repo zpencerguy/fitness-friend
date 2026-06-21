@@ -153,9 +153,9 @@ curl http://localhost:8080/v1/equipment -H "x-user-id: dev-user"
 
 ## Web App API Sync
 
-The web app now has an opt-in API mirror. Browser-local IndexedDB/localStorage
-remain the default source of truth, but writes can be mirrored to the API for
-shared web/iOS development.
+The web app now has opt-in API sync. Browser-local IndexedDB/localStorage remain
+the default source of truth, but the app can hydrate from the API at startup and
+mirror writes back to the API for shared web/iOS development.
 
 Enable it by opening:
 
@@ -176,9 +176,16 @@ Current mirrored writes:
 - Completed workout create/update/delete
 - Post-workout movement log updates
 
+Current startup hydration:
+
+- Equipment
+- Custom workouts
+- Planned workouts
+- Completed workouts and movement logs
+
 Next steps:
 
 1. Add real auth provider validation.
-2. Add backend reads/hydration after login.
-3. Add one-time browser-local migration into backend records.
+2. Add one-time browser-local migration into backend records.
+3. Add conflict handling for edits made from multiple clients.
 4. Add progress/recovery endpoints for coach features.
