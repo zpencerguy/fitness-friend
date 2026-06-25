@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="./styles.css?v=20260615">
+    <link rel="stylesheet" href="./styles.css?v=20260621">
   </head>
   <body>
     <nav class="app-topbar" aria-label="BellForge app navigation">
@@ -68,13 +68,36 @@
           <button class="complete" id="complete-button" type="button" disabled>Complete</button>
         </div>
 
-        <form id="workout-form" class="timer-config-form" aria-hidden="true">
-          <input id="workout-name" name="workoutName" type="hidden" value="Manual EMOM">
-          <input id="rounds" name="rounds" type="hidden" value="10">
-          <input id="work-seconds" name="workSeconds" type="hidden" value="30">
-          <input id="rest-seconds" name="restSeconds" type="hidden" value="30">
-          <input id="tags" name="tags" type="hidden">
-        </form>
+        <details class="timer-config-drawer">
+          <summary>
+            <span>Manual setup</span>
+            <small>Workout name, rounds, timing, tags</small>
+          </summary>
+          <form id="workout-form" class="timer-config-form">
+            <label>
+              Workout name
+              <input id="workout-name" name="workoutName" type="text" value="Manual EMOM">
+            </label>
+            <div class="timer-config-grid">
+              <label>
+                Rounds
+                <input id="rounds" name="rounds" type="number" min="1" max="120" value="10">
+              </label>
+              <label>
+                Work seconds
+                <input id="work-seconds" name="workSeconds" type="number" min="1" max="59" value="30">
+              </label>
+              <label>
+                Rest seconds
+                <input id="rest-seconds" name="restSeconds" type="number" min="1" max="59" value="30">
+              </label>
+            </div>
+            <label>
+              Tags
+              <input id="tags" name="tags" type="text" placeholder="hypertrophy, kettlebell, legs">
+            </label>
+          </form>
+        </details>
       </section>
 
       <div class="side-rail">
