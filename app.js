@@ -228,6 +228,7 @@ const state = {
   audioUnlockPromise: null,
   playedAudioCues: new Set(),
   celebrationTimeoutId: null,
+  scheduleFocusKey: null,
 };
 
 let dbPromise = openDatabase();
@@ -1986,6 +1987,7 @@ function renderSchedule() {
     elements.scheduleTitle.textContent = "No workout selected";
     elements.scheduleSummary.textContent = "Manual EMOM";
     elements.scheduleList.innerHTML = "";
+    state.scheduleFocusKey = null;
     return;
   }
 
@@ -2013,22 +2015,39 @@ function renderSchedule() {
       `,
     )
     .join("");
+  state.scheduleFocusKey = null;
   updateScheduleHighlight(getTimerSnapshot());
 }
 
 function updateScheduleHighlight(snapshot) {
   const activeMovement = getActiveMovement(snapshot);
   const upcomingMovement = snapshot.isRest ? state.activePlan[snapshot.currentRound] ?? null : null;
+  let focusedItem = null;
 
   elements.scheduleList.querySelectorAll("[data-movement-index]").forEach((item) => {
-    item.classList.toggle("is-active", Boolean(activeMovement && !snapshot.isRest && item.dataset.movementIndex === String(activeMovement.movementIndex)));
-    item.classList.toggle("is-upcoming", Boolean(upcomingMovement && item.dataset.movementIndex === String(upcomingMovement.movementIndex)));
+    const isActive = Boolean(activeMovement && !snapshot.isRest && item.dataset.movementIndex === String(activeMovement.movementIndex));
+    const isUpcoming = Boolean(upcomingMovement && item.dataset.movementIndex === String(upcomingMovement.movementIndex));
+
+    item.classList.toggle("is-active", isActive);
+    item.classList.toggle("is-upcoming", isUpcoming);
+
+    if (isActive || isUpcoming) focusedItem = item;
   });
 
   if (!state.selectedTemplate || !activeMovement) return;
 
   const phaseText = snapshot.isRest ? `next: move ${upcomingMovement?.movementIndex ?? activeMovement.movementIndex}` : `active: move ${activeMovement.movementIndex}`;
   elements.scheduleSummary.textContent = `${state.selectedTemplate.movements.length} distinct moves · cycle ${activeMovement.cycle} of ${state.selectedTemplate.cycles} · ${phaseText}`;
+
+  const focusMovement = snapshot.isRest ? upcomingMovement ?? activeMovement : activeMovement;
+  const nextFocusKey = focusMovement
+    ? `${snapshot.phaseName}-${focusMovement.cycle}-${focusMovement.movementIndex}`
+    : null;
+
+  if (focusedItem && nextFocusKey && state.scheduleFocusKey !== nextFocusKey) {
+    state.scheduleFocusKey = nextFocusKey;
+    focusedItem.scrollIntoView({ block: "nearest" });
+  }
 }
 
 function renderMuscleTags(movement) {

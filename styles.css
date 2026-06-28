@@ -2019,6 +2019,9 @@ textarea:focus {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  margin-top: 18px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
 }
 
 .exercise-header span {
@@ -2036,16 +2039,16 @@ textarea:focus {
   flex: 0 0 auto;
   grid-template-columns: minmax(0, 1.5fr) minmax(120px, 0.8fr) minmax(120px, 0.8fr);
   gap: 10px;
-  margin-top: 16px;
+  margin-top: 10px;
 }
 
 .exercise-list {
   display: grid;
-  flex: 1 1 auto;
+  flex: 0 0 clamp(130px, 22vh, 190px);
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 10px;
-  min-height: 220px;
-  margin: 16px -6px 0 0;
+  min-height: 0;
+  margin: 10px -6px 0 0;
   overflow: auto;
   padding-right: 6px;
 }
@@ -2116,12 +2119,26 @@ textarea:focus {
 }
 
 .selected-workout-header {
-  margin-top: 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 5px;
+  margin-top: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 0 0 12px;
 }
 
 #moves-tab .schedule-list {
-  flex: 0 0 auto;
-  max-height: 190px;
+  flex: 1 1 auto;
+  min-height: 340px;
+  max-height: none;
+}
+
+#moves-tab .schedule-list li {
+  padding: 12px 14px;
+}
+
+#moves-tab .schedule-list .muscle-tags {
+  display: none;
 }
 
 .schedule-header {
