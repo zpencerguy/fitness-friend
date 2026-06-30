@@ -124,6 +124,7 @@ const elements = {
   movementArt: document.querySelector("#movement-art"),
   timerContextDetails: document.querySelector("#timer-context-details"),
   phaseLabel: document.querySelector("#phase-label"),
+  phaseCue: document.querySelector("#phase-cue"),
   movementKicker: document.querySelector("#movement-kicker"),
   movementLabel: document.querySelector("#movement-label"),
   timerState: document.querySelector("#timer-state"),
@@ -933,6 +934,7 @@ function updateDisplay() {
   const visibleMovement = snapshot.isRest ? state.activePlan[snapshot.currentRound] ?? activeMovement : activeMovement;
 
   elements.phaseLabel.textContent = snapshot.phaseName === "Complete" ? "Complete" : `${snapshot.phaseName} phase`;
+  elements.phaseCue.textContent = getPhaseCue(snapshot);
   elements.roundLabel.textContent = `Round ${snapshot.currentRound} of ${snapshot.rounds}`;
   elements.movementKicker.textContent = getMovementKicker(snapshot, activeMovement);
   elements.movementLabel.textContent = getMovementLabel(snapshot, activeMovement);
@@ -1026,13 +1028,31 @@ async function toggleSound() {
   updateSoundButton();
 
   if (state.soundEnabled) {
-    await playTone({ frequency: 660, duration: 0.1, volume: 0.085, type: "sine" });
+    await playTone({ frequency: 784, duration: 0.13, volume: 0.28, type: "triangle" });
   }
 }
 
 function updateSoundButton() {
   elements.soundButton.textContent = state.soundEnabled ? "Sound On" : "Sound Off";
   elements.soundButton.setAttribute("aria-pressed", String(state.soundEnabled));
+}
+
+function getPhaseCue(snapshot) {
+  if (state.status === "ready") return "Ready";
+  if (state.status === "paused") return "Paused";
+  if (snapshot.phaseName === "Complete") return "Workout complete";
+
+  if (!snapshot.isRest && snapshot.secondsLeft <= 3 && snapshot.secondsLeft > 0) {
+    return snapshot.currentRound < snapshot.rounds
+      ? `Rest in ${snapshot.secondsLeft}`
+      : `Finish in ${snapshot.secondsLeft}`;
+  }
+
+  if (snapshot.isRest && snapshot.secondsLeft <= 3 && snapshot.secondsLeft > 0) {
+    return `Go in ${snapshot.secondsLeft}`;
+  }
+
+  return snapshot.isRest ? "Rest now" : "Work now";
 }
 
 async function unlockAudio() {
@@ -1069,11 +1089,11 @@ function handleAudioCues(snapshot) {
   }
 
   if (!snapshot.isRest && snapshot.secondsLeft <= 3 && snapshot.secondsLeft > 0) {
-    playAudioCue(`work-countdown-${snapshot.currentRound}-${snapshot.secondsLeft}`, () => playCountdownCue(snapshot.secondsLeft));
+    playAudioCue(`work-countdown-${snapshot.currentRound}-${snapshot.secondsLeft}`, () => playCountdownCue(snapshot.secondsLeft, "rest"));
   }
 
   if (snapshot.isRest && snapshot.secondsLeft <= 3 && snapshot.secondsLeft > 0) {
-    playAudioCue(`rest-countdown-${snapshot.currentRound}-${snapshot.secondsLeft}`, () => playCountdownCue(snapshot.secondsLeft));
+    playAudioCue(`rest-countdown-${snapshot.currentRound}-${snapshot.secondsLeft}`, () => playCountdownCue(snapshot.secondsLeft, "work"));
   }
 }
 
@@ -1085,17 +1105,30 @@ function playAudioCue(key, callback) {
 }
 
 function playRoundStartCue() {
-  playTone({ frequency: 880, duration: 0.1, volume: 0.15, type: "triangle" });
-  window.setTimeout(() => playTone({ frequency: 1175, duration: 0.12, volume: 0.14, type: "triangle" }), 110);
+  playTone({ frequency: 784, duration: 0.12, volume: 0.34, type: "triangle" });
+  window.setTimeout(() => playTone({ frequency: 1046, duration: 0.15, volume: 0.36, type: "triangle" }), 110);
 }
 
 function playRestStartCue() {
-  playTone({ frequency: 520, duration: 0.11, volume: 0.1, type: "sine" });
+  playTone({ frequency: 440, duration: 0.14, volume: 0.32, type: "square" });
+  window.setTimeout(() => playTone({ frequency: 330, duration: 0.18, volume: 0.34, type: "square" }), 120);
 }
 
-function playCountdownCue(secondsLeft) {
-  const frequency = secondsLeft === 1 ? 760 : 620;
-  playTone({ frequency, duration: 0.08, volume: 0.08, type: "sine" });
+function playCountdownCue(secondsLeft, nextPhase) {
+  const restCountdownFrequencies = {
+    3: 740,
+    2: 660,
+    1: 560,
+  };
+  const workCountdownFrequencies = {
+    3: 660,
+    2: 784,
+    1: 988,
+  };
+  const frequencies = nextPhase === "work" ? workCountdownFrequencies : restCountdownFrequencies;
+  const type = nextPhase === "work" ? "triangle" : "sine";
+
+  playTone({ frequency: frequencies[secondsLeft], duration: 0.12, volume: 0.3, type });
 }
 
 async function playTone({ frequency, duration, volume, type }) {
@@ -1106,14 +1139,21 @@ async function playTone({ frequency, duration, volume, type }) {
   const now = audioContext.currentTime;
   const oscillator = audioContext.createOscillator();
   const gain = audioContext.createGain();
+  const compressor = audioContext.createDynamicsCompressor();
 
   oscillator.type = type;
   oscillator.frequency.setValueAtTime(frequency, now);
+  compressor.threshold.setValueAtTime(-18, now);
+  compressor.knee.setValueAtTime(18, now);
+  compressor.ratio.setValueAtTime(6, now);
+  compressor.attack.setValueAtTime(0.003, now);
+  compressor.release.setValueAtTime(0.08, now);
   gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.exponentialRampToValueAtTime(volume, now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(volume, now + 0.006);
   gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
   oscillator.connect(gain);
-  gain.connect(audioContext.destination);
+  gain.connect(compressor);
+  compressor.connect(audioContext.destination);
   oscillator.start(now);
   oscillator.stop(now + duration + 0.02);
 }

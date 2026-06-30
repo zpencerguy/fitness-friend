@@ -843,9 +843,23 @@ textarea:focus {
   text-transform: uppercase;
 }
 
+.phase-cue {
+  min-height: 24px;
+  color: var(--ink);
+  font-family: "Space Mono", monospace;
+  font-size: 0.92rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
 .rest-mode .phase-badge {
   border-color: rgba(178, 58, 29, 0.42);
   background: rgba(49, 46, 129, 0.13);
+  color: var(--rest-dark);
+}
+
+.rest-mode .phase-cue {
   color: var(--rest-dark);
 }
 
