@@ -1162,7 +1162,8 @@ textarea:focus {
 .template-list {
   display: grid;
   flex: 1 1 auto;
-  gap: 4px;
+  align-content: start;
+  gap: 8px;
   min-height: 0;
   margin: 22px -6px 0 0;
   overflow: auto;
@@ -1175,6 +1176,7 @@ textarea:focus {
   gap: 6px;
   border-left: 3px solid transparent;
   background: transparent;
+  border-radius: 8px;
 }
 
 .template-row.is-active {
@@ -1302,6 +1304,31 @@ textarea:focus {
 
 .template-actions [data-edit-template-id] {
   width: 44px;
+}
+
+.template-preview {
+  grid-column: 1 / -1;
+  border-top: 1px solid rgba(232, 93, 4, 0.18);
+  padding: 12px 12px 14px;
+}
+
+.template-preview .selected-workout-header {
+  border-bottom: 0;
+  padding-bottom: 8px;
+}
+
+.template-preview .schedule-list {
+  max-height: clamp(280px, 42vh, 520px);
+  margin-top: 8px;
+}
+
+.template-preview .schedule-list li {
+  border-radius: 6px;
+  padding: 12px 10px;
+}
+
+.template-preview .schedule-list .muscle-tags {
+  display: none;
 }
 
 .delete-icon-button {
@@ -2033,9 +2060,7 @@ textarea:focus {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin-top: 18px;
-  border-top: 1px solid var(--line);
-  padding-top: 14px;
+  margin-top: 0;
 }
 
 .exercise-header span {
@@ -2052,17 +2077,18 @@ textarea:focus {
   display: grid;
   flex: 0 0 auto;
   grid-template-columns: minmax(0, 1.5fr) minmax(120px, 0.8fr) minmax(120px, 0.8fr);
-  gap: 10px;
-  margin-top: 10px;
+  gap: 12px;
+  margin-top: 18px;
 }
 
 .exercise-list {
   display: grid;
-  flex: 0 0 clamp(130px, 22vh, 190px);
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 10px;
+  flex: 1 1 auto;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  align-content: start;
+  gap: 12px;
   min-height: 0;
-  margin: 10px -6px 0 0;
+  margin: 18px -6px 0 0;
   overflow: auto;
   padding-right: 6px;
 }

@@ -1446,10 +1446,33 @@ function renderTemplates() {
             </span>
           </button>
           ${actions}
+          ${state.selectedTemplate?.id === template.id ? renderTemplatePreview() : ""}
         </article>
       `;
     })
     .join("");
+
+  refreshScheduleElements();
+  if (state.selectedTemplate) {
+    renderSchedule();
+  } else {
+    updateScheduleHighlight(getTimerSnapshot());
+  }
+}
+
+function renderTemplatePreview() {
+  return `
+    <div class="template-preview">
+      <div class="schedule-header selected-workout-header">
+        <div>
+          <p class="eyebrow">Selected workout</p>
+          <strong id="schedule-title">No workout selected</strong>
+        </div>
+        <span id="schedule-summary">Manual EMOM</span>
+      </div>
+      <ol class="schedule-list" id="schedule-list"></ol>
+    </div>
+  `;
 }
 
 function getSortedTemplates() {
@@ -1493,14 +1516,13 @@ function selectTemplate(templateId) {
 
   renderTemplates();
   renderSchedule();
-  switchTab("moves");
   updateDisplay();
 }
 
 function selectPlannedSession(session) {
   selectTemplate(session.templateId);
   state.activePlanSessionId = session.id;
-  switchTab("moves");
+  switchTab("templates");
 }
 
 function startNewTemplate() {
@@ -2022,7 +2044,20 @@ async function deleteEquipment(equipmentId) {
   await deleteApiResource("/v1/equipment", equipment?.apiId);
 }
 
+function refreshScheduleElements() {
+  elements.scheduleTitle = document.querySelector("#schedule-title");
+  elements.scheduleSummary = document.querySelector("#schedule-summary");
+  elements.scheduleList = document.querySelector("#schedule-list");
+}
+
 function renderSchedule() {
+  refreshScheduleElements();
+
+  if (!elements.scheduleTitle || !elements.scheduleSummary || !elements.scheduleList) {
+    state.scheduleFocusKey = null;
+    return;
+  }
+
   if (!state.selectedTemplate) {
     elements.scheduleTitle.textContent = "No workout selected";
     elements.scheduleSummary.textContent = "Manual EMOM";
@@ -2060,6 +2095,10 @@ function renderSchedule() {
 }
 
 function updateScheduleHighlight(snapshot) {
+  refreshScheduleElements();
+
+  if (!elements.scheduleList || !elements.scheduleSummary) return;
+
   const activeMovement = getActiveMovement(snapshot);
   const upcomingMovement = snapshot.isRest ? state.activePlan[snapshot.currentRound] ?? null : null;
   let focusedItem = null;
