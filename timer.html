@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="./styles.css?v=20260621">
+    <link rel="stylesheet" href="./styles.css?v=20260630-builder">
   </head>
   <body>
     <nav class="app-topbar" aria-label="BellForge app navigation">
@@ -257,6 +257,37 @@
                 </label>
               </div>
 
+              <section class="builder-library" aria-labelledby="builder-library-title">
+                <div class="builder-library-header">
+                  <div>
+                    <p class="eyebrow">Exercise library</p>
+                    <h3 id="builder-library-title">Choose Moves</h3>
+                  </div>
+                  <span id="builder-library-count">0 results</span>
+                </div>
+
+                <div class="builder-library-controls">
+                  <label>
+                    Search
+                    <input id="builder-library-search" type="search" placeholder="Search exercises">
+                  </label>
+                  <label>
+                    Pattern
+                    <select id="builder-library-pattern-filter">
+                      <option value="">All patterns</option>
+                    </select>
+                  </label>
+                  <label>
+                    Equipment
+                    <select id="builder-library-equipment-filter">
+                      <option value="">All equipment</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="builder-library-list" id="builder-library-list"></div>
+              </section>
+
               <div class="move-entry">
                 <label>
                   Move
@@ -425,6 +456,6 @@
       </div>
     </div>
 
-    <script src="./app.js?v=20260615" type="module"></script>
+    <script src="./app.js?v=20260630-builder" type="module"></script>
   </body>
 </html>

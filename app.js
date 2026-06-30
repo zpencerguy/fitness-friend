@@ -167,12 +167,18 @@ const elements = {
   newTemplateButton: document.querySelector("#new-template-button"),
   clearBuilderButton: document.querySelector("#clear-builder-button"),
   builderTitle: document.querySelector("#builder-title"),
+  builderForm: document.querySelector("#builder-form"),
   builderName: document.querySelector("#builder-name"),
   builderCycles: document.querySelector("#builder-cycles"),
   builderTags: document.querySelector("#builder-tags"),
   builderMoveName: document.querySelector("#builder-move-name"),
   builderMoveTarget: document.querySelector("#builder-move-target"),
   builderMovePattern: document.querySelector("#builder-move-pattern"),
+  builderLibrarySearch: document.querySelector("#builder-library-search"),
+  builderLibraryPatternFilter: document.querySelector("#builder-library-pattern-filter"),
+  builderLibraryEquipmentFilter: document.querySelector("#builder-library-equipment-filter"),
+  builderLibraryCount: document.querySelector("#builder-library-count"),
+  builderLibraryList: document.querySelector("#builder-library-list"),
   addMoveButton: document.querySelector("#add-move-button"),
   builderMoveList: document.querySelector("#builder-move-list"),
   saveTemplateButton: document.querySelector("#save-template-button"),
@@ -213,6 +219,7 @@ const state = {
   intervalId: null,
   isCompleting: false,
   selectedTemplate: null,
+  expandedTemplateId: null,
   activePlan: [],
   templates: [],
   builderEditingId: null,
@@ -1409,6 +1416,9 @@ function renderTemplates() {
       const activeClass = state.selectedTemplate?.id === template.id ? " is-active" : "";
       const isFavorite = state.favoriteTemplateIds.has(template.id);
       const favoriteClass = isFavorite ? " is-favorite" : "";
+      const isSelected = state.selectedTemplate?.id === template.id;
+      const isExpanded = state.expandedTemplateId === template.id;
+      const previewLabel = isExpanded ? "Hide moves" : isSelected ? "Show moves" : "View moves";
       const editAction = template.isCustom
         ? `<button type="button" data-edit-template-id="${template.id}" aria-label="Edit ${escapeHtml(template.name)}" title="Edit">Edit</button>`
         : "";
@@ -1444,9 +1454,10 @@ function renderTemplates() {
               ${template.description ? `<span>${escapeHtml(template.description)}</span>` : ""}
               <small>${template.movements.length} moves · ${template.cycles} cycles · ${duration}</small>
             </span>
+            <span class="template-preview-label">${previewLabel}</span>
           </button>
           ${actions}
-          ${state.selectedTemplate?.id === template.id ? renderTemplatePreview() : ""}
+          ${isExpanded ? renderTemplatePreview() : ""}
         </article>
       `;
     })
@@ -1503,9 +1514,19 @@ function toggleTemplateFavorite(templateId) {
 function selectTemplate(templateId) {
   const template = state.templates.find((candidate) => candidate.id === templateId);
   if (!template) return;
+  const isSelectedTemplate = state.selectedTemplate?.id === templateId;
+
+  if (isSelectedTemplate && state.expandedTemplateId === templateId) {
+    state.expandedTemplateId = null;
+    renderTemplates();
+    renderSchedule();
+    updateDisplay();
+    return;
+  }
 
   const plan = expandTemplate(template);
   state.selectedTemplate = template;
+  state.expandedTemplateId = template.id;
   state.activePlanSessionId = null;
   state.activePlan = plan;
   elements.workoutName.value = template.name;
@@ -1516,7 +1537,13 @@ function selectTemplate(templateId) {
 
   renderTemplates();
   renderSchedule();
+  scrollSelectedTemplateIntoView();
   updateDisplay();
+}
+
+function scrollSelectedTemplateIntoView() {
+  const activeRow = elements.templateList.querySelector(".template-row.is-active");
+  activeRow?.scrollIntoView({ block: "nearest" });
 }
 
 function selectPlannedSession(session) {
@@ -1579,6 +1606,7 @@ async function deleteTemplate(templateId) {
 
   if (state.selectedTemplate?.id === templateId) {
     state.selectedTemplate = null;
+    state.expandedTemplateId = null;
     state.activePlan = [];
     elements.workoutName.value = "Manual EMOM";
     elements.rounds.value = "10";
@@ -1597,6 +1625,7 @@ async function deleteTemplate(templateId) {
   loadTemplates();
   renderTemplates();
   renderExerciseLibrary({ refreshFilters: true });
+  renderBuilderLibrary({ refreshFilters: true });
   renderSchedule();
   await renderPlanner();
   updateDisplay();
@@ -1628,6 +1657,24 @@ function addBuilderMove() {
   elements.builderMoveName.value = "";
   elements.builderMoveTarget.value = "";
   elements.builderMoveName.focus();
+  renderBuilder();
+}
+
+function addLibraryMoveToBuilder(exerciseId) {
+  const exercise = getExerciseLibrary().find((candidate) => candidate.id === exerciseId);
+  if (!exercise) return;
+
+  state.builderMoves.push({
+    move: exercise.move,
+    target: exercise.target || `${DEFAULT_WORK_SECONDS} sec`,
+    pattern: exercise.pattern || "Move",
+    cue: exercise.cue ?? "",
+    primaryMuscles: [...(exercise.primaryMuscles ?? [])],
+    secondaryMuscles: [...(exercise.secondaryMuscles ?? [])],
+  });
+
+  state.builderEditingMoveIndex = null;
+  elements.addMoveButton.textContent = "Add Move";
   renderBuilder();
 }
 
@@ -1706,6 +1753,7 @@ async function saveBuilderTemplate() {
   state.builderEditingMoveIndex = null;
   elements.addMoveButton.textContent = "Add Move";
   renderExerciseLibrary({ refreshFilters: true });
+  renderBuilderLibrary({ refreshFilters: true });
   renderPlanner();
 }
 
@@ -1733,6 +1781,7 @@ function renderBuilder() {
         .join("")
     : '<li class="builder-empty">No moves added yet.</li>';
   elements.builderSummary.textContent = `${state.builderMoves.length} moves · ${cycles} cycles · ${duration}`;
+  renderBuilderLibrary();
 }
 
 function renderEquipment() {
@@ -2224,30 +2273,58 @@ function renderExerciseFilterOptions(exercises) {
   elements.exerciseEquipmentFilter.value = equipment.includes(selectedEquipment) ? selectedEquipment : "";
 }
 
-function renderExerciseLibrary({ refreshFilters = false } = {}) {
-  const exercises = getExerciseLibrary();
+function renderBuilderLibraryFilterOptions(exercises) {
+  const selectedPattern = elements.builderLibraryPatternFilter.value;
+  const selectedEquipment = elements.builderLibraryEquipmentFilter.value;
+  const patterns = [...new Set(exercises.map((exercise) => exercise.pattern).filter(Boolean))].sort();
+  const equipment = [...new Set(exercises.map((exercise) => exercise.equipment).filter(Boolean))].sort();
 
-  if (refreshFilters) renderExerciseFilterOptions(exercises);
+  elements.builderLibraryPatternFilter.innerHTML = [
+    '<option value="">All patterns</option>',
+    ...patterns.map((pattern) => `<option value="${escapeHtml(pattern)}">${escapeHtml(pattern)}</option>`),
+  ].join("");
+  elements.builderLibraryEquipmentFilter.innerHTML = [
+    '<option value="">All equipment</option>',
+    ...equipment.map((item) => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`),
+  ].join("");
 
-  const searchText = normalizeMoveName(elements.exerciseSearch.value);
-  const pattern = elements.exercisePatternFilter.value;
-  const equipment = elements.exerciseEquipmentFilter.value;
-  const filteredExercises = exercises.filter((exercise) => {
+  elements.builderLibraryPatternFilter.value = patterns.includes(selectedPattern) ? selectedPattern : "";
+  elements.builderLibraryEquipmentFilter.value = equipment.includes(selectedEquipment) ? selectedEquipment : "";
+}
+
+function filterExercises(exercises, { searchText = "", pattern = "", equipment = "" } = {}) {
+  const normalizedSearch = normalizeMoveName(searchText);
+
+  return exercises.filter((exercise) => {
     const searchHaystack = normalizeMoveName(
       `${exercise.move} ${exercise.pattern} ${exercise.equipment} ${exercise.primaryMuscles.join(" ")} ${exercise.secondaryMuscles.join(" ")}`,
     );
 
     return (
-      (!searchText || searchHaystack.includes(searchText)) &&
+      (!normalizedSearch || searchHaystack.includes(normalizedSearch)) &&
       (!pattern || exercise.pattern === pattern) &&
       (!equipment || exercise.equipment === equipment)
     );
+  });
+}
+
+function renderExerciseLibrary({ refreshFilters = false, resetScroll = false } = {}) {
+  const exercises = getExerciseLibrary();
+
+  if (refreshFilters) renderExerciseFilterOptions(exercises);
+
+  const filteredExercises = filterExercises(exercises, {
+    searchText: elements.exerciseSearch.value,
+    pattern: elements.exercisePatternFilter.value,
+    equipment: elements.exerciseEquipmentFilter.value,
   });
 
   elements.exerciseCount.textContent = `${filteredExercises.length} result${filteredExercises.length === 1 ? "" : "s"}`;
   elements.exerciseList.innerHTML = filteredExercises.length
     ? filteredExercises.map(renderExerciseCard).join("")
     : '<p class="empty-state">No exercises match those filters.</p>';
+
+  if (resetScroll) elements.exerciseList.scrollTop = 0;
 }
 
 function renderExerciseCard(exercise) {
@@ -2262,6 +2339,39 @@ function renderExerciseCard(exercise) {
         ${renderMuscleTags(exercise)}
         <em>${escapeHtml(exercise.sourceWorkouts.slice(0, 2).join(", "))}</em>
       </div>
+    </article>
+  `;
+}
+
+function renderBuilderLibrary({ refreshFilters = false, resetScroll = false } = {}) {
+  const exercises = getExerciseLibrary();
+
+  if (refreshFilters) renderBuilderLibraryFilterOptions(exercises);
+
+  const filteredExercises = filterExercises(exercises, {
+    searchText: elements.builderLibrarySearch.value,
+    pattern: elements.builderLibraryPatternFilter.value,
+    equipment: elements.builderLibraryEquipmentFilter.value,
+  });
+
+  elements.builderLibraryCount.textContent = `${filteredExercises.length} result${filteredExercises.length === 1 ? "" : "s"}`;
+  elements.builderLibraryList.innerHTML = filteredExercises.length
+    ? filteredExercises.slice(0, 24).map(renderBuilderExerciseCard).join("")
+    : '<p class="empty-state">No exercises match those filters.</p>';
+
+  if (resetScroll) elements.builderLibraryList.scrollTop = 0;
+}
+
+function renderBuilderExerciseCard(exercise) {
+  return `
+    <article class="builder-exercise-card">
+      ${renderMoveArt(exercise, "builder-exercise-art")}
+      <div class="builder-exercise-copy">
+        <strong>${escapeHtml(exercise.move)}</strong>
+        <small><b>${escapeHtml(exercise.pattern)}</b>${exercise.target ? ` ${escapeHtml(exercise.target)}` : ""}</small>
+        <span>${escapeHtml(exercise.equipment)} · ${escapeHtml(exercise.difficulty)}</span>
+      </div>
+      <button type="button" data-add-library-move="${escapeHtml(exercise.id)}">Add</button>
     </article>
   `;
 }
@@ -2724,9 +2834,19 @@ elements.plannerGrid.addEventListener("click", async (event) => {
 });
 elements.newTemplateButton.addEventListener("click", startNewTemplate);
 elements.clearBuilderButton.addEventListener("click", startNewTemplate);
+elements.builderForm.addEventListener("submit", (event) => event.preventDefault());
 elements.addMoveButton.addEventListener("click", addBuilderMove);
 elements.saveTemplateButton.addEventListener("click", saveBuilderTemplate);
 elements.builderCycles.addEventListener("input", renderBuilder);
+elements.builderLibrarySearch.addEventListener("input", () => renderBuilderLibrary({ resetScroll: true }));
+elements.builderLibraryPatternFilter.addEventListener("change", () => renderBuilderLibrary({ resetScroll: true }));
+elements.builderLibraryEquipmentFilter.addEventListener("change", () => renderBuilderLibrary({ resetScroll: true }));
+elements.builderLibraryList.addEventListener("click", (event) => {
+  const addButton = event.target.closest("[data-add-library-move]");
+  if (!addButton) return;
+
+  addLibraryMoveToBuilder(addButton.dataset.addLibraryMove);
+});
 elements.builderMoveTarget.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
@@ -2770,9 +2890,9 @@ elements.equipmentList.addEventListener("click", (event) => {
 
   toggleEquipment(toggleButton.dataset.equipmentId);
 });
-elements.exerciseSearch.addEventListener("input", () => renderExerciseLibrary());
-elements.exercisePatternFilter.addEventListener("change", () => renderExerciseLibrary());
-elements.exerciseEquipmentFilter.addEventListener("change", () => renderExerciseLibrary());
+elements.exerciseSearch.addEventListener("input", () => renderExerciseLibrary({ resetScroll: true }));
+elements.exercisePatternFilter.addEventListener("change", () => renderExerciseLibrary({ resetScroll: true }));
+elements.exerciseEquipmentFilter.addEventListener("change", () => renderExerciseLibrary({ resetScroll: true }));
 elements.tabButtons.forEach((button) => {
   button.addEventListener("click", () => switchTab(button.dataset.tab));
 });
@@ -2807,6 +2927,7 @@ async function initializeApp() {
   loadTemplates();
   renderTemplates();
   renderExerciseLibrary({ refreshFilters: true });
+  renderBuilderLibrary({ refreshFilters: true });
   renderSchedule();
   renderBuilder();
   renderEquipment();
