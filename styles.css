@@ -2252,6 +2252,14 @@ textarea:focus {
   min-width: 0;
 }
 
+.exercise-card-title {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  min-width: 0;
+}
+
 .exercise-card-copy strong {
   min-width: 0;
   color: var(--ink);
@@ -2303,6 +2311,99 @@ textarea:focus {
 .exercise-card .muscle-tag {
   padding: 3px 7px;
   font-size: 0.68rem;
+}
+
+.exercise-info-shell {
+  display: inline-grid;
+  justify-items: end;
+  line-height: 1;
+}
+
+.exercise-info {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid rgba(232, 93, 4, 0.28);
+  border-radius: 999px;
+  background: rgba(250, 237, 231, 0.92);
+  color: var(--primary-dark);
+  cursor: help;
+  font-family: "Space Mono", monospace;
+  font-size: 0.86rem;
+  font-weight: 900;
+  line-height: 1;
+  outline: none;
+}
+
+.exercise-card-copy .exercise-info,
+.builder-exercise-copy .exercise-info,
+.schedule-content .exercise-info {
+  color: var(--primary-dark);
+  font-size: 0.86rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.exercise-info:focus-visible {
+  box-shadow: 0 0 0 3px rgba(232, 93, 4, 0.18);
+}
+
+.exercise-info-popover {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 80;
+  display: none;
+  width: min(560px, calc(100vw - 34px));
+  max-height: min(640px, calc(100vh - 48px));
+  overflow: auto;
+  border: 1px solid rgba(16, 28, 61, 0.18);
+  border-radius: 8px;
+  background: #f4f6f8;
+  box-shadow:
+    0 28px 90px rgba(16, 28, 61, 0.34),
+    0 0 0 9999px rgba(226, 232, 240, 0.62);
+  color: var(--muted-strong);
+  padding: 22px;
+  text-align: left;
+  transform: translate(-50%, -50%);
+}
+
+.exercise-info-shell:hover .exercise-info-popover,
+.exercise-info-shell:focus-within .exercise-info-popover {
+  display: grid;
+  gap: 8px;
+}
+
+.exercise-info-popover > strong {
+  color: var(--ink);
+  font-family: var(--app-font);
+  font-size: clamp(1.45rem, 3vw, 2rem);
+  font-weight: 900;
+  line-height: 1.05;
+}
+
+.exercise-info-popover > span {
+  color: var(--muted-strong);
+  font-family: var(--app-font);
+  font-size: clamp(1rem, 1.4vw, 1.1rem);
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.exercise-info-popover .exercise-info-kicker,
+.exercise-info-popover .exercise-info-label {
+  color: var(--primary);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.exercise-info-popover .exercise-info-label {
+  margin-top: 8px;
 }
 
 .selected-workout-header {
@@ -2404,6 +2505,14 @@ textarea:focus {
 .schedule-content {
   display: grid;
   gap: 5px;
+  min-width: 0;
+}
+
+.schedule-move-title {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
   min-width: 0;
 }
 

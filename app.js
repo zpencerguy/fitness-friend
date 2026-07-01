@@ -2127,7 +2127,10 @@ function renderSchedule() {
           ${renderMoveArt(movement, "move-art-thumb")}
           <span>${index + 1}</span>
           <div class="schedule-content">
-            <strong>${escapeHtml(movement.move)}</strong>
+            <div class="schedule-move-title">
+              <strong>${escapeHtml(movement.move)}</strong>
+              ${renderExerciseInfo(movement)}
+            </div>
             <small>
               <b>${escapeHtml(movement.pattern ?? "Move")}</b>
               ${escapeHtml(movement.target)}
@@ -2332,7 +2335,10 @@ function renderExerciseCard(exercise) {
     <article class="exercise-card">
       ${renderMoveArt(exercise, "exercise-card-art")}
       <div class="exercise-card-copy">
-        <strong>${escapeHtml(exercise.move)}</strong>
+        <div class="exercise-card-title">
+          <strong>${escapeHtml(exercise.move)}</strong>
+          ${renderExerciseInfo(exercise)}
+        </div>
         <span>${escapeHtml(exercise.equipment)} · ${escapeHtml(exercise.difficulty)}</span>
         <small><b>${escapeHtml(exercise.pattern)}</b>${exercise.target ? ` ${escapeHtml(exercise.target)}` : ""}</small>
         ${exercise.cue ? `<p>${escapeHtml(exercise.cue)}</p>` : ""}
@@ -2367,13 +2373,279 @@ function renderBuilderExerciseCard(exercise) {
     <article class="builder-exercise-card">
       ${renderMoveArt(exercise, "builder-exercise-art")}
       <div class="builder-exercise-copy">
-        <strong>${escapeHtml(exercise.move)}</strong>
+        <div class="exercise-card-title">
+          <strong>${escapeHtml(exercise.move)}</strong>
+          ${renderExerciseInfo(exercise)}
+        </div>
         <small><b>${escapeHtml(exercise.pattern)}</b>${exercise.target ? ` ${escapeHtml(exercise.target)}` : ""}</small>
         <span>${escapeHtml(exercise.equipment)} · ${escapeHtml(exercise.difficulty)}</span>
       </div>
       <button type="button" data-add-library-move="${escapeHtml(exercise.id)}">Add</button>
     </article>
   `;
+}
+
+function renderExerciseInfo(exercise) {
+  const info = getExerciseResearchInfo(exercise);
+
+  return `
+    <span class="exercise-info-shell">
+      <span class="exercise-info" tabindex="0" aria-label="About ${escapeHtml(exercise.move)}">
+        i
+      </span>
+      <span class="exercise-info-popover" role="tooltip">
+        <span class="exercise-info-kicker">Exercise guide</span>
+        <strong>${escapeHtml(exercise.move)}</strong>
+        <span class="exercise-info-label">What it does</span>
+        <span>${escapeHtml(info.summary)}</span>
+        <span class="exercise-info-label">How to move</span>
+        <span>${escapeHtml(info.execution)}</span>
+        <span class="exercise-info-label">Muscles</span>
+        <span>${escapeHtml(info.muscles)}</span>
+        <span class="exercise-info-label">Watch</span>
+        <span>${escapeHtml(info.watch)}</span>
+      </span>
+    </span>
+  `;
+}
+
+function getExerciseResearchInfo(exercise) {
+  const name = normalizeMoveName(exercise.move);
+  const pattern = normalizeMoveName(exercise.pattern);
+  const muscles = getExerciseMuscleSummary(exercise);
+  const cue = exercise.cue ? ` Your working cue: ${exercise.cue}` : "";
+
+  if (name.includes("burpee")) {
+    return buildExerciseInfo({
+      summary: "A full-body conditioning move that combines a squat or hinge to the floor, plank, return to standing, and usually a jump.",
+      execution: "Move through the floor transition smoothly, land softly, and keep the plank portion braced instead of letting the hips sag.",
+      muscles,
+      watch: `Do not rush sloppy reps. Step back instead of jumping if your low back or knees lose position.${cue}`,
+    });
+  }
+
+  if (name.includes("pushup")) {
+    return buildExerciseInfo({
+      summary: "A horizontal push that trains chest, triceps, shoulders, and trunk stiffness like a moving plank.",
+      execution: "Set hands under or just outside shoulders, keep ribs and hips connected, lower under control, then press the floor away.",
+      muscles,
+      watch: `Avoid flared elbows, sagging hips, and craning the neck. Use an incline if full reps get loose.${cue}`,
+    });
+  }
+
+  if (name.includes("swing")) {
+    return buildExerciseInfo({
+      summary: "A ballistic hip-hinge power move. The bell floats because the hips snap, not because the arms lift.",
+      execution: "Hike the bell high between the thighs, keep lats packed, drive hips forward, and let the bell return close to the body.",
+      muscles,
+      watch: `Do not turn it into a front raise or squat. Stop if you cannot keep a neutral spine.${cue}`,
+    });
+  }
+
+  if (name.includes("deadrow")) {
+    return buildExerciseInfo({
+      summary: "A single-leg hinge combined with a row, challenging posterior-chain strength, balance, and upper-back pulling.",
+      execution: "Reach the free leg back, keep hips mostly square, pause your balance, then row the elbow toward the ribs.",
+      muscles,
+      watch: `Use a lighter bell than a normal row. Keep the torso quiet before adding speed or load.${cue}`,
+    });
+  }
+
+  if (name.includes("deadlift") || name.includes("romanian")) {
+    return buildExerciseInfo({
+      summary: "A hip-hinge strength move for building the posterior chain with the bell close to your center of mass.",
+      execution: "Push hips back, keep the spine long, grip the bell close, then stand by driving the floor away and squeezing glutes.",
+      muscles,
+      watch: `Avoid rounding the back or reaching the bell away from you. Shorten range if hamstrings pull your spine out of position.${cue}`,
+    });
+  }
+
+  if (name.includes("glute bridge")) {
+    return buildExerciseInfo({
+      summary: "A floor-based hip-extension move that emphasizes glutes without requiring balance or spinal loading.",
+      execution: "Brace ribs down, drive through heels, squeeze glutes at the top, and lower under control.",
+      muscles,
+      watch: `Do not overarch the low back to get higher. Keep the movement coming from hip extension.${cue}`,
+    });
+  }
+
+  if (name.includes("squat")) {
+    return buildExerciseInfo({
+      summary: "A knee-and-hip bend pattern. Goblet and offset versions load the front of the body, forcing core bracing and upright posture.",
+      execution: "Hold the bell close, sit between the hips, keep knees tracking over toes, then stand through mid-foot pressure.",
+      muscles,
+      watch: `Avoid collapsing knees, heel lift, or rounding at the bottom. Use controlled depth you can own.${cue}`,
+    });
+  }
+
+  if (name.includes("lunge") || name.includes("split squat")) {
+    return buildExerciseInfo({
+      summary: "A single-leg squat pattern that builds quads, glutes, adductors, and hip stability side to side.",
+      execution: "Step or set the stance, keep the front foot rooted, lower with control, then drive through the front leg to stand.",
+      muscles,
+      watch: `Keep the knee tracking with the toes and torso organized. Use reverse lunges if forward lunges bother knees.${cue}`,
+    });
+  }
+
+  if (name.includes("row")) {
+    return buildExerciseInfo({
+      summary: "An upper-body pull for the lats, mid-back, rear delts, biceps, and grip, usually held from a braced hinge.",
+      execution: "Brace the hinge, start with the shoulder blade, pull elbow toward the ribs or back pocket, then lower slowly.",
+      muscles,
+      watch: `Do not twist the torso to finish the rep. Keep neck long and shoulder away from the ear.${cue}`,
+    });
+  }
+
+  if (name.includes("high pull") || name.includes("upright row")) {
+    return buildExerciseInfo({
+      summary: "A pull that links hip drive or standing posture with upper-back and shoulder elevation control.",
+      execution: "Keep the bell close, lead with elbows only as high as comfortable, and keep wrists stacked rather than curled.",
+      muscles,
+      watch: `Use a pain-free shoulder range. If shoulders pinch, swap to rows, cleans, or swings.${cue}`,
+    });
+  }
+
+  if (name.includes("floor press") || name.includes("chest press")) {
+    return buildExerciseInfo({
+      summary: "A floor-based horizontal press that trains chest, triceps, and shoulder stability with a safer bottom range than a bench.",
+      execution: "Pack the shoulder, lower until the upper arm meets the floor, pause lightly, then press to a stacked wrist and elbow.",
+      muscles,
+      watch: `Avoid bouncing the arm into the floor or letting the wrist bend back under load.${cue}`,
+    });
+  }
+
+  if (name.includes("press")) {
+    return buildExerciseInfo({
+      summary: "An overhead push that builds shoulders and triceps while demanding rib control and trunk stiffness.",
+      execution: "Start from a strong rack, brace glutes and abs, press vertically, and finish with wrist over elbow over shoulder.",
+      muscles,
+      watch: `Do not lean back to create a false lockout. Use half-kneeling versions to reduce leg help.${cue}`,
+    });
+  }
+
+  if (name.includes("clean")) {
+    return buildExerciseInfo({
+      summary: "A power movement that moves the bell from a swing path into the rack, training hip snap, grip timing, and trunk control.",
+      execution: "Drive from the hips, keep the bell close, loosen the grip slightly, and catch softly in the rack.",
+      muscles,
+      watch: `Avoid banging the forearm. Practice light until the bell rotates around the hand instead of flipping over it.${cue}`,
+    });
+  }
+
+  if (name.includes("halo")) {
+    return buildExerciseInfo({
+      summary: "A controlled shoulder and upper-back mobility drill that also challenges the trunk to resist rib flare.",
+      execution: "Hold the bell by the horns, circle around the head slowly, keep head still, and keep ribs stacked over hips.",
+      muscles,
+      watch: `Use a light bell and stay pain-free. The point is smooth shoulder motion, not heavy loading.${cue}`,
+    });
+  }
+
+  if (name.includes("turkish get-up")) {
+    return buildExerciseInfo({
+      summary: "A slow get-up pattern that links rolling, bracing, shoulder stability, hip mobility, and lunge mechanics.",
+      execution: "Move checkpoint by checkpoint, keep the loaded arm vertical, and own each position before advancing.",
+      muscles,
+      watch: `Start unloaded or very light. Do not rush through unstable shoulder or wrist positions.${cue}`,
+    });
+  }
+
+  if (name.includes("march") || name.includes("suitcase")) {
+    return buildExerciseInfo({
+      summary: "A loaded carry variation for anti-lean core strength, grip, posture, and hip control.",
+      execution: "Stand tall, keep ribs stacked, move the knees slowly, and resist leaning toward or away from the bell.",
+      muscles,
+      watch: `Use slower steps instead of heavier weight if posture starts to tilt.${cue}`,
+    });
+  }
+
+  if (name.includes("twist")) {
+    return buildExerciseInfo({
+      summary: "A rotational core move that trains obliques and trunk control while holding a bell close to the body.",
+      execution: "Sit tall, brace, rotate the ribs and shoulders together, and keep the bell controlled instead of swinging it.",
+      muscles,
+      watch: `Avoid yanking from the arms or rounding aggressively through the low back.${cue}`,
+    });
+  }
+
+  if (name.includes("dead bug") || name.includes("leg raise") || name.includes("sit up") || name.includes("plank") || name.includes("pull-through")) {
+    return buildExerciseInfo({
+      summary: "A floor-core movement for bracing, pelvic control, and resisting extension or rotation.",
+      execution: "Set ribs down, keep the low back controlled, move slowly, and stop the range before the trunk loses position.",
+      muscles,
+      watch: `Quality beats range. Reduce leverage or load if your low back takes over.${cue}`,
+    });
+  }
+
+  if (name.includes("pullover")) {
+    return buildExerciseInfo({
+      summary: "A shoulder-extension pattern that trains lats, chest, serratus, and trunk control when the bell moves overhead.",
+      execution: "Keep ribs down, move through the shoulders, and stop before the low back arches.",
+      muscles,
+      watch: `Use a light bell and a small range until shoulders and ribs stay organized.${cue}`,
+    });
+  }
+
+  if (name.includes("curl")) {
+    return buildExerciseInfo({
+      summary: "An arm isolation move for elbow flexors and grip, often made harder by the kettlebell's offset center of mass.",
+      execution: "Keep elbows near the ribs, curl without swinging, pause briefly, then lower under control.",
+      muscles,
+      watch: `Do not turn it into a hip swing. Reduce load if your shoulders roll forward.${cue}`,
+    });
+  }
+
+  if (name.includes("raise") || name.includes("toss") || name.includes("figure-eight")) {
+    return buildExerciseInfo({
+      summary: "A coordination and shoulder/core control drill. The goal is controlled bell path, posture, and smooth hand transitions.",
+      execution: "Use a light bell, keep the torso organized, and move deliberately through a range you can control.",
+      muscles,
+      watch: `Avoid chasing speed. If grip or shoulder control fades, stop before form breaks.${cue}`,
+    });
+  }
+
+  return buildExerciseInfo({
+    summary: `A ${exercise.pattern || "strength"} movement used in BellForge workouts to build repeatable strength and conditioning with simple equipment.`,
+    execution: `Follow the listed cue, move through a controlled range, and keep the trunk braced throughout the working interval.`,
+    muscles,
+    watch: `Prioritize clean reps over speed. Adjust load or range if form changes.${cue}`,
+  });
+}
+
+function buildExerciseInfo(info) {
+  return info;
+}
+
+function getExerciseMuscleSummary(exercise) {
+  const primary = exercise.primaryMuscles ?? [];
+  const secondary = exercise.secondaryMuscles ?? [];
+
+  if (primary.length || secondary.length) {
+    return [
+      primary.length ? `Primary: ${primary.join(", ")}` : "",
+      secondary.length ? `Secondary: ${secondary.join(", ")}` : "",
+    ]
+      .filter(Boolean)
+      .join(". ");
+  }
+
+  const pattern = normalizeMoveName(exercise.pattern);
+  const patternMuscles = {
+    arms: "Biceps, brachialis, forearms, and grip.",
+    carry: "Obliques, quadratus lumborum, transverse abdominis, grip, traps, and glutes.",
+    conditioning: "Full body: legs, chest, shoulders, triceps, core, and aerobic system.",
+    core: "Rectus abdominis, obliques, transverse abdominis, hip flexors, and spinal stabilizers.",
+    hinge: "Glutes, hamstrings, adductors, erector spinae, lats, core, and grip.",
+    lunge: "Quadriceps, glutes, hamstrings, adductors, calves, and hip stabilizers.",
+    mobility: "Shoulders, upper back, rotator cuff, core, hips, and grip.",
+    power: "Glutes, hamstrings, traps, shoulders, core, and grip.",
+    pull: "Lats, rhomboids, middle traps, rear delts, biceps, forearms, and spinal stabilizers.",
+    push: "Chest, anterior delts, triceps, serratus anterior, core, and rotator cuff.",
+    shoulders: "Deltoids, upper traps, rotator cuff, serratus anterior, core, and grip.",
+    squat: "Quadriceps, glutes, adductors, hamstrings, calves, erector spinae, and abs.",
+  };
+
+  return patternMuscles[pattern] ?? "Primary muscles depend on loading, range, and form; keep reps controlled and balanced.";
 }
 
 function populateBaselineForm() {
